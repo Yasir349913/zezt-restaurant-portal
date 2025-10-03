@@ -1,0 +1,168 @@
+// src/components/Sidebar.jsx
+import React, { useState } from "react";
+import {
+  LayoutDashboard,
+  BookOpen,
+  ClipboardList,
+  CalendarDays,
+  FileText,
+  CheckSquare,
+  MessageSquare,
+  FileBarChart,
+  Building2,
+  Bell,
+  Settings,
+  X,
+  LogOut,
+} from "lucide-react";
+import { useNavigate, useLocation } from "react-router-dom";
+import { logoutUserApi } from "../../../api/auth";
+
+const navItems = [
+  { path: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { path: "/deals", label: "Deals", icon: BookOpen },
+  { path: "/bookings", label: "Bookings", icon: ClipboardList },
+  { path: "/aura-suggestions", label: "Aura Suggestions", icon: CalendarDays },
+  { path: "/analytics", label: "Analytics", icon: FileText },
+  { path: "/revenue", label: "Revenue", icon: CheckSquare },
+  { path: "/messages", label: "Messages", icon: MessageSquare },
+  { path: "/reports", label: "Reports", icon: FileBarChart },
+  { path: "/occupancy", label: "Occupancy", icon: Building2 },
+  { path: "/notifications", label: "Notifications", icon: Bell },
+  { path: "/settings", label: "Settings", icon: Settings },
+];
+
+const Sidebar = ({ open, setOpen }) => {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const currentPath = location.pathname;
+  const [loadingLogout, setLoadingLogout] = useState(false);
+
+  const handleNavClick = (path) => {
+    if (window.innerWidth < 1280) setOpen(false);
+    navigate(path);
+  };
+
+  const handleLogout = async () => {
+    try {
+      setLoadingLogout(true);
+      // Best-effort backend logout; if backend doesn't accept the header it's fine.
+      await logoutUserApi();
+    } catch (err) {
+      // Even if server logout fails, clear client tokens so user is logged out locally.
+      console.warn("Logout API error:", err);
+    } finally {
+      // Clear client-side auth state
+      try {
+        localStorage.removeItem("token");
+        localStorage.removeItem("refreshToken");
+        localStorage.removeItem("user");
+      } catch (e) {
+        /* ignore */
+      }
+
+      // Optionally clear axios defaults here if you set them globally:
+      // import { authApi } from "../api"; delete authApi.defaults.headers.common['Authorization'];
+
+      setLoadingLogout(false);
+      setOpen(false); // close sidebar on mobile
+      navigate("/login");
+    }
+  };
+
+  return (
+    <>
+      <aside
+        className={`fixed left-0 top-0 h-screen w-64 bg-white z-40 transition-transform duration-300 flex flex-col
+        ${open ? "translate-x-0" : "-translate-x-full"} xl:translate-x-0`}
+        aria-label="Main sidebar"
+      >
+        {/* Header */}
+        <div className="flex-shrink-0 p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div
+                className="w-8 h-8 rounded-lg flex items-center justify-center"
+                style={{ backgroundColor: "#E57272" }}
+              >
+                <span className="text-white font-bold text-sm">Z</span>
+              </div>
+              <h1 className="text-lg font-bold text-gray-800">ZEZT</h1>
+            </div>
+            <button
+              className="p-1 rounded hover:bg-gray-100 xl:hidden transition-colors"
+              onClick={() => setOpen(false)}
+            >
+              <X size={16} className="text-gray-500" />
+            </button>
+          </div>
+        </div>
+
+        {/* Navigation */}
+        <div className="flex-1 min-h-0">
+          <nav className="h-full px-4 py-4">
+            <div className="h-full overflow-y-auto space-y-2 pr-2 beautiful-scroll">
+              {navItems.map(({ path, label, icon: Icon }) => {
+                const isActive = currentPath === path;
+                return (
+                  <button
+                    key={path}
+                    onClick={() => handleNavClick(path)}
+                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors text-left ${
+                      isActive
+                        ? "text-white bg-[#E57272]"
+                        : "text-gray-600 hover:bg-gray-50 hover:text-gray-800"
+                    }`}
+                  >
+                    <Icon
+                      size={18}
+                      className={isActive ? "text-white" : "text-gray-500"}
+                    />
+                    <span className="font-medium text-sm">{label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </nav>
+        </div>
+
+        {/* Logout */}
+        <div className="flex-shrink-0 p-4">
+          <button
+            onClick={handleLogout}
+            disabled={loadingLogout}
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors text-left
+                     text-[#E57272] hover:bg-gray-50 disabled:opacity-60"
+          >
+            <LogOut size={18} className="text-[#E57272]" />
+            <span className="font-medium text-sm">
+              {loadingLogout ? "Logging out..." : "Logout"}
+            </span>
+          </button>
+        </div>
+      </aside>
+
+      {/* Mobile overlay */}
+      {open && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 z-30 xl:hidden"
+          onClick={() => setOpen(false)}
+        />
+      )}
+
+      <style jsx>{`
+        /* Hide scrollbar but allow scrolling */
+        .beautiful-scroll::-webkit-scrollbar {
+          display: none;
+        }
+
+        .beautiful-scroll {
+          -ms-overflow-style: none; /* IE 10+ */
+          scrollbar-width: none; /* Firefox */
+        }
+      `}</style>
+    </>
+  );
+};
+
+export default Sidebar;
