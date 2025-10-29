@@ -2,7 +2,7 @@
 import { authApi } from "./api"; // uses baseURL: http://localhost:5000/api
 
 /**
- * GET /profile
+ * GET /restaurant/profile
  * Expects backend response: { user, restaurant }
  */
 export const fetchRestaurantProfile = async () => {
@@ -16,7 +16,7 @@ export const fetchRestaurantProfile = async () => {
 };
 
 /**
- * POST /  (create restaurant)
+ * POST /restaurant (create restaurant)
  * Expects backend response: { restaurant, token }
  * Note: backend sets ownerId from token, so do NOT send ownerId in payload.
  */
@@ -26,5 +26,19 @@ export const createRestaurantProfile = async (payload) => {
     return res.data; // { restaurant, token }
   } catch (err) {
     throw err.response?.data || { message: "Failed to create restaurant" };
+  }
+};
+
+/**
+ * PUT /restaurant (update restaurant)
+ * Expects backend response: { success, message, restaurant }
+ * Note: backend finds restaurant by ownerId from token
+ */
+export const updateRestaurantProfile = async (payload) => {
+  try {
+    const res = await authApi.put("/restaurant/profile", payload);
+    return res.data; // { success, message, restaurant }
+  } catch (err) {
+    throw err.response?.data || { message: "Failed to update restaurant" };
   }
 };

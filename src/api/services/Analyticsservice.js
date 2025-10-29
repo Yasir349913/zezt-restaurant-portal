@@ -19,7 +19,7 @@ export const getRestaurantId = () => RESTAURANT_ID;
 export const getMonthlyStats = async (restaurantId) => {
   const id = restaurantId ?? RESTAURANT_ID;
   if (!id) throw new Error("restaurantId is required");
-  const { data } = await http.get(`/restaurant/${id}/analytics`);
+  const { data } = await http.get(`/restaurant/analytics`);
   return data;
 };
 
@@ -30,7 +30,7 @@ export const getMonthlyStats = async (restaurantId) => {
 export const getRestaurantDealsPerformance = async (restaurantId) => {
   const id = restaurantId ?? RESTAURANT_ID;
   if (!id) throw new Error("restaurantId is required");
-  const { data } = await http.get(`/restaurant/${id}/dealComparison`);
+  const { data } = await http.get(`/restaurant/dealComparison`);
   return data;
 };
 
@@ -41,6 +41,6 @@ export const getRestaurantDealsPerformance = async (restaurantId) => {
 export const getMonthlyDealRating = async (restaurantId) => {
   const id = restaurantId ?? RESTAURANT_ID;
   if (!id) throw new Error("restaurantId is required");
-  const { data } = await http.get(`/restaurant/${id}/monthlyRating`);
+  const { data } = await http.get(`/restaurant/monthlyRating`);
   return data;
 };

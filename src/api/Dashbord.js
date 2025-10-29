@@ -25,6 +25,6 @@ export const getRestaurantId = () => RESTAURANT_ID;
 export const getDashboardData = async (restaurantId) => {
   const id = restaurantId ?? RESTAURANT_ID;
   if (!id) throw new Error("restaurantId is required");
-  const { data } = await http.get(`/restaurant/${id}/dashboard`);
+  const { data } = await http.get(`/restaurant/dashboard`);
   return data;
 };

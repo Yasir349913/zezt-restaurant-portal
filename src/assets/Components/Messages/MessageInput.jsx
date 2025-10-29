@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
-import { Send, Plus, Paperclip, Smile, Image, FileText } from "lucide-react";
-import Socketservice from "../../../api/services/Socketservice";
+import { Send, Plus, Smile, Image, FileText, Paperclip } from "lucide-react";
+import socketService from "../../../api/services/Socketservice";
 
 const MessageInput = ({
   onSend,
@@ -157,6 +157,7 @@ const MessageInput = ({
             </div>
           )}
         </div>
+
         {/* Message Input */}
         <div className="flex-1 relative">
           <textarea

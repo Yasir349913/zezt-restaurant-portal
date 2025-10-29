@@ -3,7 +3,7 @@ import Dealscards from "../Deals/Dealscards";
 import DealsFilter from "../Deals/DealsFilter";
 import DealsTable from "../Deals/DealsTable";
 import Dealscalendar from "../Deals/Dealscalendar";
-import CreateDealModal from "../Deals/Dealsform";
+import CreateDealModal from "../Deals/Dealsform"; // your existing create modal
 import { Plus } from "lucide-react";
 
 export default function Dealslayout() {
@@ -11,23 +11,23 @@ export default function Dealslayout() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
+  // NEW: filtered deals state (null = no filter applied)
+  const [filteredDeals, setFilteredDeals] = useState(null);
+
   const handleTabChange = (tab) => {
     setActiveTab(tab);
   };
 
   const handleDealCreated = () => {
+    // increment refresh trigger and clear filters to force refetch
     setRefreshTrigger((prev) => prev + 1);
-    console.log(
-      "Deal created, refreshing data...",
-      "New trigger:",
-      refreshTrigger + 1
-    );
+    setFilteredDeals(null);
   };
 
   const handleFilterApplied = (filteredData) => {
+    // filteredData is expected to be an array (can be empty)
     console.log("Filtered data received:", filteredData);
-    // You can handle the filtered data here if needed
-    // For example, pass it to DealsTable to display filtered results
+    setFilteredDeals(Array.isArray(filteredData) ? filteredData : []);
   };
 
   const renderTabContent = () => {
@@ -40,7 +40,10 @@ export default function Dealslayout() {
               onFilterApplied={handleFilterApplied}
             />
             <div className="bg-white rounded-lg p-6 shadow-sm">
-              <DealsTable refreshTrigger={refreshTrigger} />
+              <DealsTable
+                refreshTrigger={refreshTrigger}
+                filteredDeals={filteredDeals}
+              />
             </div>
           </>
         );
@@ -79,7 +82,7 @@ export default function Dealslayout() {
         {/* Tab Content */}
         {renderTabContent()}
 
-        {/* Modal */}
+        {/* Create Modal */}
         <CreateDealModal
           isOpen={isModalOpen}
           onClose={() => setIsModalOpen(false)}

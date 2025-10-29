@@ -23,15 +23,14 @@ const DealsFilter = ({ onFilterApplied, refreshTrigger }) => {
     status: false,
   });
 
-  // Dynamic options from current month deals
   const [dealOptions, setDealOptions] = useState(["All Deals"]);
   const [redemptionOptions, setRedemptionOptions] = useState(["All"]);
+  const statusOptions = ["All", "Active", "Inactive"];
 
-  // Generate month options for last 12 months
+  // Last 12 months + All Time
   const generateMonthOptions = () => {
     const months = ["All Time"];
     const currentDate = new Date();
-
     for (let i = 0; i < 12; i++) {
       const date = new Date(
         currentDate.getFullYear(),
@@ -44,121 +43,107 @@ const DealsFilter = ({ onFilterApplied, refreshTrigger }) => {
       });
       months.push(monthName);
     }
-
     return months;
   };
-
   const dateRangeOptions = generateMonthOptions();
-  const statusOptions = ["All", "Active", "Inactive"];
 
-  // Fetch current month deals to populate dropdowns
+  // Fetch current month deals for dropdown options
   useEffect(() => {
     if (!restaurantId) return;
 
     getAllDealsForCurrentMonth(restaurantId)
       .then((data) => {
         const dealsArray = Array.isArray(data) ? data : data?.deals || [];
-
-        // Extract unique deal titles
         const uniqueTitles = ["All Deals"];
-        dealsArray.forEach((deal) => {
-          if (deal.deal_title && !uniqueTitles.includes(deal.deal_title)) {
-            uniqueTitles.push(deal.deal_title);
-          }
-        });
-        setDealOptions(uniqueTitles);
-
-        // Extract unique redemption values and sort them
         const redemptionSet = new Set(["All"]);
+
         dealsArray.forEach((deal) => {
-          if (deal.redemption !== undefined && deal.redemption !== null) {
+          if (deal.deal_title && !uniqueTitles.includes(deal.deal_title))
+            uniqueTitles.push(deal.deal_title);
+          if (deal.redemption !== undefined && deal.redemption !== null)
             redemptionSet.add(deal.redemption.toString());
-          }
         });
 
-        const sortedRedemptions = Array.from(redemptionSet).sort((a, b) => {
-          if (a === "All") return -1;
-          if (b === "All") return 1;
-          return Number(a) - Number(b);
-        });
-
-        setRedemptionOptions(sortedRedemptions);
+        setDealOptions(uniqueTitles);
+        setRedemptionOptions(
+          Array.from(redemptionSet).sort((a, b) =>
+            a === "All" ? -1 : b === "All" ? 1 : Number(a) - Number(b)
+          )
+        );
       })
       .catch((err) => console.error("Failed to fetch deals for filters:", err));
   }, [restaurantId, refreshTrigger]);
 
   const toggleDropdown = (filterType) => {
-    setDropdownStates((prev) => ({
-      ...prev,
-      [filterType]: !prev[filterType],
-    }));
+    setDropdownStates((prev) => ({ ...prev, [filterType]: !prev[filterType] }));
   };
 
   const selectOption = (filterType, value) => {
-    setFilters((prev) => ({
-      ...prev,
-      [filterType]: value,
-    }));
-    setDropdownStates((prev) => ({
-      ...prev,
-      [filterType]: false,
-    }));
+    setFilters((prev) => ({ ...prev, [filterType]: value }));
+    setDropdownStates((prev) => ({ ...prev, [filterType]: false }));
   };
 
   const resetFilters = () => {
-    setFilters({
+    const reset = {
       dateRange: "All Time",
       deal: "All Deals",
       redemptions: "All",
       status: "All",
-    });
+    };
+    setFilters(reset);
+    applyFilters(reset);
   };
 
-  const applyFilters = async () => {
-    if (!restaurantId) return;
-
-    // Build backend filter params - only include non-default values
-    const payload = {
-      restaurant_id: restaurantId,
+  // Convert dateRange string to startDate/endDate
+  const getStartAndEndDate = (dateRange) => {
+    if (dateRange === "All Time") return {};
+    const [monthName, year] = dateRange.split(" ");
+    const monthIndex = new Date(`${monthName} 1, ${year}`).getMonth();
+    const startDate = new Date(year, monthIndex, 1);
+    const endDate = new Date(year, monthIndex + 1, 0);
+    return {
+      startDate: startDate.toISOString().split("T")[0],
+      endDate: endDate.toISOString().split("T")[0],
     };
+  };
 
-    if (filters.dateRange !== "All Time") {
-      payload.dateRange = filters.dateRange;
-    }
-    if (filters.deal !== "All Deals") {
-      payload.deal = filters.deal;
-    }
-    if (filters.redemptions !== "All") {
-      payload.redemptions = filters.redemptions;
-    }
-    if (filters.status !== "All") {
-      payload.status = filters.status.toLowerCase();
-    }
+  const applyFilters = async (customFilters) => {
+    if (!restaurantId) return;
+    const activeFilters = customFilters || filters;
+
+    const { startDate, endDate } = getStartAndEndDate(activeFilters.dateRange);
+    const payload = { restaurant_id: restaurantId };
+
+    if (activeFilters.deal !== "All Deals")
+      payload.dealTitle = activeFilters.deal;
+    if (activeFilters.redemptions !== "All")
+      payload.redemption = activeFilters.redemptions;
+    if (activeFilters.status !== "All")
+      payload.status = activeFilters.status.toLowerCase();
+    if (startDate) payload.startDate = startDate;
+    if (endDate) payload.endDate = endDate;
 
     try {
-      const data = await getAllDealsUsingPortalFilters(payload);
-      if (onFilterApplied) onFilterApplied(data);
+      // IMPORTANT: API returns wrapper { totalNoOfDeals, page, limit, totalPages, data: [...] }
+      const res = await getAllDealsUsingPortalFilters(payload);
+      // get the array of deals from res.data (or fallback to res if API returns array directly)
+      const dealsArray = (res && (res.data ?? res)) || [];
+      if (onFilterApplied) onFilterApplied(dealsArray);
     } catch (err) {
       console.error("Error applying filters:", err);
+      // propagate empty array on error so the parent can show "no results"
+      if (onFilterApplied) onFilterApplied([]);
     }
   };
 
-  const FilterDropdown = ({
-    label,
-    value,
-    options,
-    filterType,
-    isOpen,
-    onToggle,
-    onSelect,
-  }) => (
+  const FilterDropdown = ({ label, value, options, filterType, isOpen }) => (
     <div className="relative w-full sm:w-1/2 md:w-1/3 lg:w-[180px]">
       <label className="block text-xs font-medium text-gray-600 mb-1">
         {label}
       </label>
       <div className="relative">
         <button
-          onClick={() => onToggle(filterType)}
+          onClick={() => toggleDropdown(filterType)}
           className="w-full bg-white border border-gray-200 rounded px-3 text-left text-sm text-gray-700 hover:border-gray-300 focus:outline-none transition-colors h-9 text-[13px]"
         >
           <div className="flex items-center justify-between">
@@ -170,13 +155,12 @@ const DealsFilter = ({ onFilterApplied, refreshTrigger }) => {
             />
           </div>
         </button>
-
         {isOpen && (
           <div className="absolute z-10 mt-1 w-full bg-white border border-gray-200 rounded shadow-lg max-h-60 overflow-auto">
             {options.map((option, index) => (
               <button
                 key={index}
-                onClick={() => onSelect(filterType, option)}
+                onClick={() => selectOption(filterType, option)}
                 className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 focus:outline-none transition-colors text-[13px]"
               >
                 {option}
@@ -190,15 +174,12 @@ const DealsFilter = ({ onFilterApplied, refreshTrigger }) => {
 
   return (
     <div className="bg-white rounded-md p-4 mb-6">
-      {/* Header */}
       <div className="flex items-center gap-2 mb-4">
         <Filter className="w-4 h-4 text-gray-500" />
         <span className="text-[13px] font-medium text-gray-700">
           Filter Deals
         </span>
       </div>
-
-      {/* Filters */}
       <div className="flex flex-wrap gap-4 mb-4">
         <FilterDropdown
           label="Date Range"
@@ -206,8 +187,6 @@ const DealsFilter = ({ onFilterApplied, refreshTrigger }) => {
           options={dateRangeOptions}
           filterType="dateRange"
           isOpen={dropdownStates.dateRange}
-          onToggle={toggleDropdown}
-          onSelect={selectOption}
         />
         <FilterDropdown
           label="Deal"
@@ -215,8 +194,6 @@ const DealsFilter = ({ onFilterApplied, refreshTrigger }) => {
           options={dealOptions}
           filterType="deal"
           isOpen={dropdownStates.deal}
-          onToggle={toggleDropdown}
-          onSelect={selectOption}
         />
         <FilterDropdown
           label="Redemptions"
@@ -224,8 +201,6 @@ const DealsFilter = ({ onFilterApplied, refreshTrigger }) => {
           options={redemptionOptions}
           filterType="redemptions"
           isOpen={dropdownStates.redemptions}
-          onToggle={toggleDropdown}
-          onSelect={selectOption}
         />
         <FilterDropdown
           label="Status"
@@ -233,22 +208,17 @@ const DealsFilter = ({ onFilterApplied, refreshTrigger }) => {
           options={statusOptions}
           filterType="status"
           isOpen={dropdownStates.status}
-          onToggle={toggleDropdown}
-          onSelect={selectOption}
         />
       </div>
-
-      {/* Action Buttons */}
       <div className="flex flex-wrap justify-end gap-3">
         <button
           onClick={resetFilters}
           className="flex items-center gap-1 text-[13px] text-gray-600 hover:text-gray-800 transition-colors"
         >
-          <X className="w-[14px] h-[14px]" />
-          Reset
+          <X className="w-[14px] h-[14px]" /> Reset
         </button>
         <button
-          onClick={applyFilters}
+          onClick={() => applyFilters()}
           className="text-white bg-[#e57272] hover:opacity-90 transition-opacity text-[13px] px-4 py-[6px] rounded font-medium"
         >
           Apply Filters

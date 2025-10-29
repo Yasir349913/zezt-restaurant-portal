@@ -8,25 +8,28 @@ import {
   FileText,
   CheckSquare,
   MessageSquare,
-  FileBarChart,
   Building2,
   Bell,
   Settings,
   X,
   LogOut,
+  CreditCard,
+  Zap, // NEW: Import for Hot Deals icon
 } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { logoutUserApi } from "../../../api/auth";
 
+// ✅ ADDED: Hot Deals item
 const navItems = [
   { path: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { path: "/deals", label: "Deals", icon: BookOpen },
+  { path: "/hot-deals", label: "Hot Deals", icon: Zap }, // NEW
   { path: "/bookings", label: "Bookings", icon: ClipboardList },
   { path: "/aura-suggestions", label: "Aura Suggestions", icon: CalendarDays },
   { path: "/analytics", label: "Analytics", icon: FileText },
   { path: "/revenue", label: "Revenue", icon: CheckSquare },
+  { path: "/payments", label: "Payments", icon: CreditCard },
   { path: "/messages", label: "Messages", icon: MessageSquare },
-  { path: "/reports", label: "Reports", icon: FileBarChart },
   { path: "/occupancy", label: "Occupancy", icon: Building2 },
   { path: "/notifications", label: "Notifications", icon: Bell },
   { path: "/settings", label: "Settings", icon: Settings },
@@ -46,26 +49,21 @@ const Sidebar = ({ open, setOpen }) => {
   const handleLogout = async () => {
     try {
       setLoadingLogout(true);
-      // Best-effort backend logout; if backend doesn't accept the header it's fine.
       await logoutUserApi();
     } catch (err) {
-      // Even if server logout fails, clear client tokens so user is logged out locally.
       console.warn("Logout API error:", err);
     } finally {
-      // Clear client-side auth state
       try {
         localStorage.removeItem("token");
         localStorage.removeItem("refreshToken");
         localStorage.removeItem("user");
+        localStorage.removeItem("restaurantId");
       } catch (e) {
         /* ignore */
       }
 
-      // Optionally clear axios defaults here if you set them globally:
-      // import { authApi } from "../api"; delete authApi.defaults.headers.common['Authorization'];
-
       setLoadingLogout(false);
-      setOpen(false); // close sidebar on mobile
+      setOpen(false);
       navigate("/login");
     }
   };
@@ -151,14 +149,13 @@ const Sidebar = ({ open, setOpen }) => {
       )}
 
       <style jsx>{`
-        /* Hide scrollbar but allow scrolling */
         .beautiful-scroll::-webkit-scrollbar {
           display: none;
         }
 
         .beautiful-scroll {
-          -ms-overflow-style: none; /* IE 10+ */
-          scrollbar-width: none; /* Firefox */
+          -ms-overflow-style: none;
+          scrollbar-width: none;
         }
       `}</style>
     </>

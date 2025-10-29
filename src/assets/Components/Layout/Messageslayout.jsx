@@ -1,12 +1,12 @@
-import React, { useState, useEffect } from "react";
-import { useAuth } from "../../../context/AuthContext";
-import socketService from "../../../api/services/Socketservice";
+// src/assets/Components/Layout/Messageslayout.jsx
+import React, { useState, useEffect, useMemo } from "react";
 import SearchBar from "../Messages/SearchBar";
 import ConversationsList from "../Messages/Conversationslist";
 import ChatHeader from "../Messages/ChatHeader";
 import MessagesList from "../Messages/Messageslist";
 import MessageInput from "../Messages/MessageInput";
-
+import { useAuth } from "../../../context/AuthContext";
+import { useRestaurant } from "../../../context/RestaurantContext";
 import {
   fetchRestaurantConversations,
   fetchMessages,
@@ -14,210 +14,205 @@ import {
   searchConversations,
 } from "../../../api/services/Messagesservices";
 
+import useRestaurantChat from "../Messages/useRestaurantChat";
+
 export default function Messageslayout() {
-  const { user } = useAuth(); // Must have user.restaurantId
+  const { user } = useAuth();
+  const { restaurantId } = useRestaurant();
+  const userId = user?._id || user?.userId;
 
   const [conversations, setConversations] = useState([]);
-  const [messagesData, setMessagesData] = useState({});
+  const [filteredConversations, setFilteredConversations] = useState([]);
   const [selectedConversationId, setSelectedConversationId] = useState(null);
   const [selectedUser, setSelectedUser] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
-  const [filteredConversations, setFilteredConversations] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
-  const [typingUsers, setTypingUsers] = useState({});
 
-  // Socket setup
+  // Add local state for storing fetched messages
+  const [allMessages, setAllMessages] = useState({});
+
+  // Use our socket hook
+  const { messagesData, typingUsers, sendMessage, emitTyping } =
+    useRestaurantChat(userId, conversations);
+
+  //  Merge fetched messages with real-time socket messages
+  const currentMessages = useMemo(() => {
+    const fetched = allMessages[selectedConversationId] || [];
+    const socketMsgs = messagesData[selectedConversationId] || [];
+
+    console.log("🔄 Merging messages:");
+    console.log("  - Fetched:", fetched.length);
+    console.log("  - Socket:", socketMsgs.length);
+
+    // Combine both arrays
+    const combined = [...fetched, ...socketMsgs];
+
+    // Remove duplicates based on message ID
+    const uniqueMessages = combined.filter(
+      (msg, index, self) => index === self.findIndex((m) => m.id === msg.id)
+    );
+
+    console.log("  - Combined (unique):", uniqueMessages.length);
+
+    // Sort by timestamp if available
+    const sorted = uniqueMessages.sort((a, b) => {
+      const timeA = new Date(a.timestamp || a.time || 0);
+      const timeB = new Date(b.timestamp || b.time || 0);
+      return timeA - timeB;
+    });
+
+    console.log("  - Final messages:", sorted.length);
+    return sorted;
+  }, [allMessages, messagesData, selectedConversationId]);
+
+  // 1️⃣ Load conversations on mount
   useEffect(() => {
-    if (user && user._id) {
-      socketService.connect(user._id);
-
-      // Listen to incoming messages from customers
-      socketService.onReceiveMessage((message) => {
-        console.log("📥 Customer message:", message);
-
-        const matchingConv = conversations.find(
-          (conv) => conv.roomId === message.roomId
-        );
-
-        if (matchingConv) {
-          const transformedMessage = {
-            id: message._id || Date.now(),
-            sender: message.sender._id === user._id ? "me" : "them",
-            content: message.text,
-            time: new Date(message.createdAt).toLocaleTimeString("en-US", {
-              hour: "numeric",
-              minute: "2-digit",
-              hour12: true,
-            }),
-            type: message.messageType || "text",
-          };
-
-          setMessagesData((prev) => ({
-            ...prev,
-            [matchingConv.id]: [
-              ...(prev[matchingConv.id] || []),
-              transformedMessage,
-            ],
-          }));
-
-          setConversations((prev) =>
-            prev.map((conv) =>
-              conv.id === matchingConv.id
-                ? {
-                    ...conv,
-                    lastMessage: message.text.substring(0, 30),
-                    time: "now",
-                    hasNotification: true,
-                  }
-                : conv
-            )
-          );
-        }
-      });
-
-      // Typing indicator
-      socketService.onUserTyping(({ userId, isTyping }) => {
-        setTypingUsers((prev) => ({ ...prev, [userId]: isTyping }));
-        if (isTyping) {
-          setTimeout(() => {
-            setTypingUsers((prev) => ({ ...prev, [userId]: false }));
-          }, 3000);
-        }
-      });
-    }
-
-    return () => {
-      if (user?._id) socketService.disconnect();
-    };
-  }, [user, conversations]);
-
-  // Load restaurant conversations
-  useEffect(() => {
-    const loadData = async () => {
-      if (!user?.restaurantId) {
-        console.error("❌ No restaurantId in user");
-        setIsInitialLoading(false);
+    const loadConversations = async () => {
+      if (!restaurantId) {
+        console.log("⚠️ No restaurantId, skipping conversation load");
         return;
       }
 
+      console.log("🏪 Loading conversations for restaurant:", restaurantId);
       setIsInitialLoading(true);
+
       try {
-        const conversationsData = await fetchRestaurantConversations(
-          user.restaurantId
-        );
+        const convs = await fetchRestaurantConversations(restaurantId);
+        console.log("✅ Loaded conversations:", convs.length);
+        setConversations(convs);
+        setFilteredConversations(convs);
 
-        setConversations(conversationsData);
-        setFilteredConversations(conversationsData);
+        if (convs.length > 0) {
+          const firstConv = convs[0];
+          console.log(
+            "🎯 Auto-selecting first conversation:",
+            firstConv.roomId
+          );
+          setSelectedConversationId(firstConv.roomId);
 
-        if (conversationsData.length > 0) {
-          const first = conversationsData[0];
-          setSelectedConversationId(first.roomId);
+          const userData = await getConversationById(firstConv.roomId);
+          setSelectedUser(userData);
 
-          const [userData, messagesData] = await Promise.all([
-            getConversationById(first.roomId),
-            fetchMessages(first.roomId),
-          ]);
+          console.log("📨 Fetching messages for room:", firstConv.roomId);
+          const msgs = await fetchMessages(firstConv.roomId);
 
-          const transformed = messagesData.map((msg) => ({
-            ...msg,
-            sender: msg.sender === user._id ? "me" : "them",
+          console.log("📥 Raw fetched messages:", msgs);
+          console.log("👤 Current userId:", userId);
+
+          const transformed = msgs.map((msg) => {
+            const isMine = msg.sender === userId;
+            console.log(
+              `  Message ${msg.id}: sender=${msg.sender}, userId=${userId}, isMine=${isMine}`
+            );
+
+            return {
+              ...msg,
+              sender: isMine ? "me" : "them",
+            };
+          });
+
+          console.log("✅ Transformed messages:", transformed);
+
+          // ✅ Store the fetched messages
+          setAllMessages((prev) => ({
+            ...prev,
+            [firstConv.roomId]: transformed,
           }));
 
-          setSelectedUser(userData);
-          setMessagesData({ [first.roomId]: transformed });
+          console.log("✅ Initial messages loaded:", transformed.length);
+        } else {
+          console.log("ℹ️ No conversations found");
         }
       } catch (error) {
-        console.error("Error loading:", error);
+        console.error("❌ Error loading conversations:", error);
       } finally {
         setIsInitialLoading(false);
       }
     };
 
-    loadData();
-  }, [user]);
+    loadConversations();
+  }, [restaurantId, userId]);
 
-  // Join room
-  useEffect(() => {
-    if (selectedConversationId && user?._id) {
-      socketService.joinRoom(selectedConversationId, user._id);
+  // 2️⃣ Handle conversation selection
+  const handleConversationSelect = async (roomId) => {
+    if (roomId === selectedConversationId) {
+      console.log("ℹ️ Already on conversation:", roomId);
+      return;
     }
-  }, [selectedConversationId, user]);
 
-  // Search
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (searchTerm.trim() === "") {
-        setFilteredConversations(conversations);
-      } else {
-        setFilteredConversations(
-          searchConversations(searchTerm, conversations)
-        );
-      }
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [searchTerm, conversations]);
-
-  const currentMessages = messagesData[selectedConversationId] || [];
-
-  const handleConversationSelect = async (conversationId) => {
-    if (conversationId === selectedConversationId) return;
-
-    setSelectedConversationId(conversationId);
+    console.log("🔄 Switching to conversation:", roomId);
+    setSelectedConversationId(roomId);
     setIsLoading(true);
 
     try {
-      const [userData, messages] = await Promise.all([
-        getConversationById(conversationId),
-        fetchMessages(conversationId),
-      ]);
-
+      const userData = await getConversationById(roomId);
       setSelectedUser(userData);
 
-      const transformed = messages.map((msg) => ({
-        ...msg,
-        sender: msg.sender === user._id ? "me" : "them",
-      }));
+      // ✅ Only fetch messages if not already cached
+      if (!allMessages[roomId]) {
+        console.log("📨 Fetching messages for room:", roomId);
+        const msgs = await fetchMessages(roomId);
 
-      setMessagesData((prev) => ({ ...prev, [conversationId]: transformed }));
-    } catch (error) {
-      console.error("Error:", error);
+        console.log("📥 Raw fetched messages:", msgs);
+        console.log("👤 Current userId:", userId);
+
+        const transformed = msgs.map((msg) => {
+          const isMine = msg.sender === userId;
+          console.log(
+            `  Message ${msg.id}: sender=${msg.sender}, userId=${userId}, isMine=${isMine}`
+          );
+
+          return {
+            ...msg,
+            sender: isMine ? "me" : "them",
+          };
+        });
+
+        console.log("✅ Transformed messages:", transformed);
+
+        // ✅ Store the fetched messages
+        setAllMessages((prev) => ({
+          ...prev,
+          [roomId]: transformed,
+        }));
+
+        console.log("✅ Messages loaded for room:", roomId, transformed.length);
+      } else {
+        console.log(
+          "✅ Using cached messages for room:",
+          roomId,
+          allMessages[roomId].length
+        );
+      }
+
+      // Update conversations notification
+      setConversations((prev) =>
+        prev.map((conv) =>
+          conv.roomId === roomId ? { ...conv, hasNotification: false } : conv
+        )
+      );
+    } catch (err) {
+      console.error("❌ Error loading conversation:", err);
     } finally {
       setIsLoading(false);
     }
   };
 
+  // 3️⃣ Handle sending a message
   const handleSendMessage = (messageContent) => {
-    if (!messageContent.trim() || !selectedConversationId || !user?._id) return;
+    if (!selectedConversationId) {
+      console.warn("⚠️ No conversation selected");
+      return;
+    }
 
-    // Send via socket
-    socketService.sendMessage(
-      selectedConversationId,
-      user._id,
-      messageContent,
-      "text"
-    );
+    console.log("📤 Sending message:", messageContent.substring(0, 30));
+    sendMessage(selectedConversationId, messageContent);
 
-    // Optimistic UI
-    const newMessage = {
-      id: Date.now(),
-      sender: "me",
-      content: messageContent,
-      time: "now",
-      type: "text",
-    };
-
-    setMessagesData((prev) => ({
-      ...prev,
-      [selectedConversationId]: [
-        ...(prev[selectedConversationId] || []),
-        newMessage,
-      ],
-    }));
-
+    // Update last message preview
     setConversations((prev) =>
       prev.map((conv) =>
-        conv.id === selectedConversationId
+        conv.roomId === selectedConversationId
           ? {
               ...conv,
               lastMessage: `You: ${messageContent.substring(0, 30)}`,
@@ -228,10 +223,34 @@ export default function Messageslayout() {
     );
   };
 
+  // 4️⃣ Handle typing indicator
+  const handleTyping = () => {
+    if (selectedConversationId) {
+      emitTyping(selectedConversationId, true);
+    }
+  };
+
+  // 5️⃣ Search conversations
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (searchTerm.trim() === "") {
+        setFilteredConversations(conversations);
+      } else {
+        const filtered = searchConversations(searchTerm, conversations);
+        console.log("🔍 Search results:", filtered.length);
+        setFilteredConversations(filtered);
+      }
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchTerm, conversations]);
+
   if (isInitialLoading) {
     return (
       <div className="xl:ml-64 pt-14 bg-gray-50 h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading messages...</p>
+        </div>
       </div>
     );
   }
@@ -239,7 +258,7 @@ export default function Messageslayout() {
   return (
     <div className="xl:ml-64 pt-14 bg-gray-50 min-h-screen">
       <div className="h-[calc(100vh-3.5rem)] flex gap-3 p-4">
-        {/* Sidebar */}
+        {/* Conversations Sidebar */}
         <div className="w-96 bg-white rounded-2xl shadow-sm flex flex-col">
           <div className="p-6">
             <h2 className="text-xl font-semibold mb-4">Customer Messages</h2>
@@ -259,7 +278,7 @@ export default function Messageslayout() {
           </div>
         </div>
 
-        {/* Chat */}
+        {/* Chat Area */}
         <div className="flex-1 bg-white rounded-2xl shadow-sm flex flex-col">
           {selectedUser ? (
             <>
@@ -277,15 +296,16 @@ export default function Messageslayout() {
               )}
               <MessageInput
                 onSend={handleSendMessage}
-                placeholder="Reply..."
+                onChange={handleTyping}
+                placeholder="Reply to customer..."
                 disabled={isLoading}
                 roomId={selectedConversationId}
-                userId={user?._id}
+                userId={userId}
               />
             </>
           ) : (
             <div className="flex-1 flex items-center justify-center text-gray-500">
-              Select a conversation
+              <p className="text-lg">Select a conversation to start</p>
             </div>
           )}
         </div>

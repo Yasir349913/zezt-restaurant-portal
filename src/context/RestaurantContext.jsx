@@ -1,8 +1,12 @@
-// src/context/RestaurantContext.jsx
+// src/context/RestaurantContext.jsx - UPDATE
 import React, { createContext, useState, useContext, useEffect } from "react";
 import { setRestaurantId as setDashboardServiceRestaurantId } from "../api/dashbord";
 import { setRestaurantId as setDealsServiceRestaurantId } from "../api/services/Dealsservice";
 import { setRestaurantId as setAnalyticsServiceRestaurantId } from "../api/services/Analyticsservice";
+import { setRestaurantId as setStripeServiceRestaurantId } from "../api/services/Stripeservices";
+import { setRestaurantId as setRevenueServiceRestaurantId } from "../api/services/Revenueservices";
+import { setRestaurantId as setOccupancyServiceRestaurantId } from "../api/services/Occupancyservices";
+import { setRestaurantId as setHotKeysServiceRestaurantId } from "../api/services/Hotdealservice"; // NEW
 
 const RestaurantContext = createContext({
   restaurantId: null,
@@ -28,10 +32,14 @@ export const RestaurantProvider = ({ children }) => {
       }
     } catch (err) {}
 
-    // Sync services
+    // Sync all services with current restaurant ID
     setDashboardServiceRestaurantId(restaurantId);
     setDealsServiceRestaurantId(restaurantId);
     setAnalyticsServiceRestaurantId(restaurantId);
+    setStripeServiceRestaurantId(restaurantId);
+    setRevenueServiceRestaurantId(restaurantId);
+    setOccupancyServiceRestaurantId(restaurantId);
+    setHotKeysServiceRestaurantId(restaurantId); // NEW
   }, [restaurantId]);
 
   const setRestaurantId = (id) => {
@@ -46,10 +54,13 @@ export const RestaurantProvider = ({ children }) => {
       }
     } catch (err) {}
 
-    // Immediately sync services
     setDashboardServiceRestaurantId(finalId);
     setDealsServiceRestaurantId(finalId);
     setAnalyticsServiceRestaurantId(finalId);
+    setStripeServiceRestaurantId(finalId);
+    setRevenueServiceRestaurantId(finalId);
+    setOccupancyServiceRestaurantId(finalId);
+    setHotKeysServiceRestaurantId(finalId); // NEW
   };
 
   return (
@@ -59,4 +70,12 @@ export const RestaurantProvider = ({ children }) => {
   );
 };
 
-export const useRestaurant = () => useContext(RestaurantContext);
+export const useRestaurant = () => {
+  const context = useContext(RestaurantContext);
+  if (!context) {
+    throw new Error("useRestaurant must be used within a RestaurantProvider");
+  }
+  return context;
+};
+
+export default RestaurantContext;

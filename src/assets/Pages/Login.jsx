@@ -7,6 +7,8 @@ import Forgetpassword from "./Forgetpassword";
 import Account from "./Account";
 import { useAuth } from "../../context/AuthContext";
 import { fetchRestaurantProfile } from "../../api/Setting";
+import StripeService from "../../api/services/Stripeservices";
+
 import { useRestaurant } from "../../context/RestaurantContext";
 
 const Login = () => {
@@ -40,12 +42,16 @@ const Login = () => {
       setMessage({ type: "error", text: "Please enter email and password." });
       return;
     }
+
     setMessage({ type: null, text: null });
     setFieldErrors({});
     setLoading(true);
 
     try {
+      // ============ STEP 1: LOGIN ============
+      console.log("🔐 Step 1: Logging in...");
       const result = await login({ email, password });
+
       if (!result.ok) {
         const norm = normalizeError(result.raw || { message: result.error });
         if (norm.fields) setFieldErrors(norm.fields);
@@ -53,70 +59,92 @@ const Login = () => {
         return;
       }
 
-      console.log("=== LOGIN SUCCESSFUL ===");
-      console.log("User logged in:", result.data?.user);
+      console.log("✅ Login successful");
+
+      // ============ STEP 2: CHECK RESTAURANT ============
+      console.log("🏪 Step 2: Checking restaurant profile...");
 
       try {
         const profile = await fetchRestaurantProfile();
+        console.log("📄 Profile fetched:", profile);
 
-        console.log("=== PROFILE FETCHED ===");
-        console.log("Full profile:", JSON.stringify(profile, null, 2));
-        console.log("Restaurant value:", profile?.restaurant);
-        console.log("Restaurant type:", typeof profile?.restaurant);
-        console.log("Restaurant is null:", profile?.restaurant === null);
-        console.log("User role:", profile?.user?.role);
-
-        // Check if restaurant exists
-        // Handle both null and empty object cases
         const restaurant = profile?.restaurant;
-
         const hasRestaurant =
           restaurant !== null &&
           restaurant !== undefined &&
           typeof restaurant === "object" &&
           Object.keys(restaurant).length > 0;
 
-        console.log("Has valid restaurant:", hasRestaurant);
-        console.log(
-          "Restaurant keys:",
-          restaurant ? Object.keys(restaurant) : "N/A"
-        );
-
-        if (hasRestaurant) {
-          // Restaurant exists - save ID and go to dashboard
-          const restaurantId =
-            restaurant._id || restaurant.id || restaurant.restaurantId;
-
-          console.log("Extracted restaurant ID:", restaurantId);
-
-          if (restaurantId) {
-            if (typeof setRestaurantId === "function") {
-              setRestaurantId(restaurantId);
-            }
-            localStorage.setItem("restaurantId", restaurantId);
-            console.log("Restaurant ID saved to context and localStorage");
-          } else {
-            console.error(
-              "Restaurant object exists but has no valid ID field!"
-            );
-            console.error("Restaurant object:", restaurant);
-          }
-
-          console.log("Redirecting to: /dashboard");
-          navigate("/dashboard");
-        } else {
-          // No restaurant - go to create form
-          console.log(
-            "No restaurant found (null/undefined/empty object), redirecting to: /settings/restaurant"
-          );
+        if (!hasRestaurant) {
+          // ❌ NO RESTAURANT -> Create restaurant
+          console.log("❌ No restaurant found");
+          console.log("➡️ Redirecting to /settings/restaurant");
           navigate("/settings/restaurant");
+          return;
         }
-      } catch (fetchErr) {
-        console.error("=== FETCH PROFILE ERROR ===");
-        console.error("Error:", fetchErr);
-        console.error("Error response:", fetchErr?.response?.data);
 
-        const status = fetchErr?.response?.status || fetchErr?.status;
+        // ✅ RESTAURANT EXISTS
+        console.log("✅ Restaurant exists:", restaurant);
+
+        // Save restaurant ID
+        const restaurantId =
+          restaurant._id || restaurant.id || restaurant.restaurantId;
+
+        if (!restaurantId) {
+          console.error("❌ No restaurant ID found in profile");
+          navigate("/settings/restaurant");
+          return;
+        }
+
+        console.log("💾 Saving restaurant ID:", restaurantId);
+
+        // Set in context
+        if (typeof setRestaurantId === "function") {
+          setRestaurantId(restaurantId);
+        }
+
+        // Set in localStorage
+        localStorage.setItem("restaurantId", restaurantId);
+
+        // ✅ Set in StripeService
+        StripeService.setRestaurantId(restaurantId);
+
+        // ============ STEP 3: CHECK STRIPE STATUS ============
+        console.log("💳 Step 3: Checking Stripe status...");
+
+        try {
+          const stripeStatus = await StripeService.checkStatus();
+          console.log("📊 Stripe Status Response:", stripeStatus);
+
+          // ✅ Check backend response property: accountActive
+          const isStripeActive = stripeStatus?.accountActive === true;
+
+          console.log("🔍 Detailed Status Check:");
+          console.log("  - success:", stripeStatus?.success);
+          console.log("  - connected:", stripeStatus?.connected);
+          console.log("  - accountActive:", stripeStatus?.accountActive);
+          console.log("  ✅ Final isStripeActive:", isStripeActive);
+
+          if (!isStripeActive) {
+            // ❌ STRIPE NOT ACTIVE -> Go to payments
+            console.log("❌ Stripe account NOT active");
+            console.log("➡️ Redirecting to /payments");
+            navigate("/payments");
+          } else {
+            // ✅ STRIPE ACTIVE -> Go to dashboard
+            console.log("✅ Stripe account active");
+            console.log("➡️ Redirecting to /dashboard");
+            navigate("/dashboard");
+          }
+        } catch (stripeError) {
+          console.error("❌ Stripe status check failed:", stripeError);
+          console.log("⚠️ Stripe check error, redirecting to /payments");
+          navigate("/payments");
+        }
+      } catch (profileError) {
+        console.error("❌ Profile fetch error:", profileError);
+
+        const status = profileError?.response?.status || profileError?.status;
         if (status === 401) {
           setMessage({
             type: "error",
@@ -125,14 +153,14 @@ const Login = () => {
           return;
         }
 
+        // If profile fetch fails, assume no restaurant
         console.log(
-          "Profile fetch failed, assuming no restaurant. Redirecting to: /settings/restaurant"
+          "⚠️ Profile fetch failed, redirecting to /settings/restaurant"
         );
         navigate("/settings/restaurant");
       }
     } catch (err) {
-      console.error("=== LOGIN ERROR ===");
-      console.error(err);
+      console.error("❌ Login error:", err);
       const norm = normalizeError(err?.response?.data || err);
       if (norm.fields) setFieldErrors(norm.fields);
       setMessage({ type: "error", text: norm.message || "Login failed" });

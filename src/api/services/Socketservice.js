@@ -1,3 +1,4 @@
+// SocketService.js
 import { io } from "socket.io-client";
 
 const SOCKET_URL = "http://localhost:5000";
@@ -10,6 +11,8 @@ class SocketService {
 
   connect(userId) {
     if (!this.socket) {
+      console.log("🔌 Connecting socket for userId:", userId);
+
       this.socket = io(SOCKET_URL, {
         transports: ["websocket"],
         reconnection: true,
@@ -28,7 +31,7 @@ class SocketService {
       });
 
       this.socket.on("connect_error", (error) => {
-        console.error("Socket connection error:", error);
+        console.error("❌ Socket connection error:", error);
       });
     }
     return this.socket;
@@ -36,12 +39,20 @@ class SocketService {
 
   joinRoom(roomId, userId) {
     if (this.socket) {
+      console.log("🚪 Joining room:", { roomId, userId });
       this.socket.emit("join_room", { roomId, userId });
     }
   }
 
   sendMessage(roomId, senderId, message, messageType = "text") {
     if (this.socket) {
+      console.log("📤 Sending message:", {
+        roomId,
+        senderId,
+        message,
+        messageType,
+      });
+
       this.socket.emit("send_message", {
         roomId,
         senderId,
@@ -53,6 +64,7 @@ class SocketService {
 
   onReceiveMessage(callback) {
     if (this.socket) {
+      console.log("👂 Listening for messages");
       this.socket.on("receive_message", callback);
     }
   }
@@ -71,6 +83,7 @@ class SocketService {
 
   disconnect() {
     if (this.socket) {
+      console.log("🔌 Disconnecting socket");
       this.socket.disconnect();
       this.socket = null;
       this.connected = false;
@@ -78,4 +91,5 @@ class SocketService {
   }
 }
 
+// ✅ Make sure to use lowercase `SocketService.js` in import if the file is lowercase
 export default new SocketService();

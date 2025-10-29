@@ -1,53 +1,92 @@
-import React, { useEffect, useState } from "react";
-import { fetchBookingDashboardData } from "../../../api/services/Bookingsservice";
-import { useRestaurant } from "../../../context/RestaurantContext";
-
+import React from "react";
 const BookingCard = ({ name, number, percentage }) => (
-  <div className="bg-white rounded-lg border border-gray-200 p-4 flex flex-col shadow-sm">
+  <div className="bg-white rounded-lg border border-gray-200 p-4 flex flex-col shadow-sm hover:shadow-md transition-shadow">
     <div className="flex justify-between items-start mb-2">
       <span className="text-sm md:text-base text-gray-600 font-medium">
         {name}
       </span>
-      <span className="text-xs md:text-sm text-green-500 font-medium">
-        +{percentage}%
-      </span>
+      {percentage !== undefined && (
+        <span
+          className={`text-xs md:text-sm font-medium ${
+            percentage >= 0 ? "text-green-500" : "text-red-500"
+          }`}
+        >
+          {percentage >= 0 ? "+" : ""}
+          {percentage}%
+        </span>
+      )}
     </div>
     <div className="flex-1 flex items-center mb-2">
       <span className="text-2xl md:text-3xl font-semibold text-gray-900">
         {number}
       </span>
     </div>
-    <div>
-      <span className="text-xs md:text-sm text-gray-400">
-        +{percentage}% in the last 1 month
-      </span>
-    </div>
+    {percentage !== undefined && (
+      <div>
+        <span className="text-xs md:text-sm text-gray-400">
+          {percentage >= 0 ? "+" : ""}
+          {percentage}% from last period
+        </span>
+      </div>
+    )}
   </div>
 );
 
-const BookingCards = () => {
-  const { restaurantId } = useRestaurant();
-  const [bookings, setBookings] = useState([]);
 
-  useEffect(() => {
-    if (!restaurantId) return;
+const Bookingcards = ({ stats }) => {
+  // Loading state
+  if (!stats) {
+    return (
+      <div className="space-y-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5 md:gap-6">
+          {[1, 2, 3, 4, 5, 6].map((i) => (
+            <div
+              key={i}
+              className="bg-gray-200 rounded-lg h-32 animate-pulse"
+            />
+          ))}
+        </div>
+      </div>
+    );
+  }
 
-    fetchBookingDashboardData(restaurantId).then((data) => {
-      // Example: transform stats into cards
-      const cardsData = [
-        { name: "Total Bookings", number: data.totalBookings, percentage: 0 },
-        { name: "Confirmed", number: data.confirmedCount, percentage: 0 },
-        { name: "Pending", number: data.pendingCount, percentage: 0 },
-        { name: "Cancelled", number: data.cancelledCount, percentage: 0 },
-      ];
-      setBookings(cardsData);
-    });
-  }, [restaurantId]);
+  // Cards data from API
+  const cardsData = [
+    {
+      name: "Total Bookings",
+      number: stats.totalBookings || 0,
+      percentage: 0,
+    },
+    {
+      name: "Confirmed",
+      number: stats.confirmedCount || 0,
+      percentage: 0,
+    },
+    {
+      name: "Pending",
+      number: stats.pendingCount || 0,
+      percentage: 0,
+    },
+    {
+      name: "Cancelled",
+      number: stats.cancelledCount || 0,
+      percentage: 0,
+    },
+    {
+      name: "No-Show",
+      number: stats.noshowCount || 0,
+      percentage: 0,
+    },
+    {
+      name: "Total Guests",
+      number: stats.totalPartySize || 0,
+    },
+  ];
 
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5 md:gap-6">
-        {bookings.map((item, idx) => (
+        {cardsData.map((item, idx) => (
           <BookingCard
             key={idx}
             name={item.name}
@@ -60,4 +99,4 @@ const BookingCards = () => {
   );
 };
 
-export default BookingCards;
+export default Bookingcards;

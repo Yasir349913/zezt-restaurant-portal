@@ -2,41 +2,38 @@
 import React, { useEffect, useState } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import SettingsNavigation from "../Settings/Settingsnavigation";
-import RestaurantForm from "../Settings/RestaurantForm";
 import EmailInputPopup from "../Settings/EmailInputpopup";
 import PasswordChangePopup from "../Settings/Passwordchangepopup";
 import EmailVerificationPopup from "../Settings/EmailVerificationPopup";
-import NotificationsSettings from "../Settings/Settingsnotifications";
-import BillingSettings from "../Settings/Billing";
-import Accountinfo from "../Settings/Accountinfo";
-
-/**
- * Settingslayout now:
- * - Renders <Outlet /> so nested routes mount inside it
- * - Keeps popups here
- * - Maintains activeTab for UI/indicator but derives it from location.pathname,
- *   so /settings/restaurant opens Restaurant tab automatically.
- */
+import StripeService from "../../../api/services/Stripeservices";
+import { useRestaurant } from "../../../context/RestaurantContext";
 
 const pathToTab = (pathname) => {
   if (pathname.endsWith("/restaurant")) return "Restaurant";
   if (pathname.endsWith("/account")) return "Account";
   if (pathname.endsWith("/notifications")) return "Notifications";
   if (pathname.endsWith("/billing")) return "Billing";
-  // default when just /settings
   return "Restaurant";
 };
 
 export default function Settingslayout() {
   const location = useLocation();
   const navigate = useNavigate();
+  const { setRestaurantId } = useRestaurant();
 
   const [activeTab, setActiveTab] = useState(() =>
     pathToTab(location.pathname)
   );
   const [showPasswordPopup, setShowPasswordPopup] = useState(null);
 
-  // keep local activeTab in sync with URL (handles manual URL nav)
+  // ✅ NEW: Redirect to restaurant tab if only /settings is accessed
+  useEffect(() => {
+    if (location.pathname === "/settings" || location.pathname === "/settings/") {
+      navigate("/settings/restaurant", { replace: true });
+    }
+  }, [location.pathname, navigate]);
+
+  // Keep local activeTab in sync with URL
   useEffect(() => {
     const t = pathToTab(location.pathname);
     setActiveTab(t);
@@ -44,7 +41,6 @@ export default function Settingslayout() {
 
   const handleTabChange = (tab) => {
     setActiveTab(tab);
-    // navigate to corresponding child route under /settings
     const tabToPath = {
       Restaurant: "restaurant",
       Account: "account",
@@ -55,24 +51,71 @@ export default function Settingslayout() {
     navigate(`/settings/${path}`, { replace: false });
   };
 
-  // password popup handlers (kept as in your original)
+  // ✅ NEW: Handle Restaurant Save & Stripe Check
+  const handleRestaurantSaved = async (restaurantId) => {
+    console.log("🏪 Restaurant saved with ID:", restaurantId);
+
+    if (!restaurantId) {
+      console.error("❌ No restaurant ID provided");
+      return;
+    }
+
+    // Save restaurant ID
+    console.log("💾 Saving restaurant ID in context and localStorage");
+
+    if (typeof setRestaurantId === "function") {
+      setRestaurantId(restaurantId);
+    }
+    localStorage.setItem("restaurantId", restaurantId);
+    StripeService.setRestaurantId(restaurantId);
+
+    // Check Stripe status
+    console.log("💳 Checking Stripe status...");
+
+    try {
+      const stripeStatus = await StripeService.checkStatus();
+      console.log("📊 Stripe Status:", stripeStatus);
+
+      const isStripeActive = stripeStatus?.accountActive === true;
+      console.log("✅ Is Stripe Active:", isStripeActive);
+
+      if (!isStripeActive) {
+        console.log("❌ Stripe not active -> Redirecting to /payments");
+        navigate("/payments");
+      } else {
+        console.log("✅ Stripe active -> Redirecting to /dashboard");
+        navigate("/dashboard");
+      }
+    } catch (error) {
+      console.error("❌ Stripe check failed:", error);
+      console.log("⚠️ Redirecting to /payments due to error");
+      navigate("/payments");
+    }
+  };
+
+  // Password popup handlers
   const handleChangePasswordClick = () => setShowPasswordPopup("email");
+
   const handleGetCode = (email) => {
     console.log("Sending code to:", email);
     setShowPasswordPopup("verification");
   };
+
   const handleContinue = (code) => {
     console.log("Verification code:", code);
     setShowPasswordPopup("password");
   };
+
   const handleResend = () => {
     console.log("Resending verification code");
   };
+
   const handleChangePassword = (passwords) => {
     console.log("Changing password:", passwords);
     setShowPasswordPopup(null);
     alert("Password changed successfully!");
   };
+
   const handleClosePopup = () => setShowPasswordPopup(null);
 
   return (
@@ -80,15 +123,14 @@ export default function Settingslayout() {
       <div className="p-6 space-y-6">
         <h1 className="text-2xl font-bold text-gray-800">Settings</h1>
 
-        {/* pass activeTab and handler so nav UI highlights correctly */}
         <SettingsNavigation
           onTabChange={handleTabChange}
           activeTab={activeTab}
         />
 
-        {/* Outlet will render nested child routes like /settings/restaurant */}
+        {/* ✅ Pass handleRestaurantSaved to nested routes via context */}
         <div className="w-full">
-          <Outlet />
+          <Outlet context={{ onRestaurantSaved: handleRestaurantSaved }} />
         </div>
       </div>
 

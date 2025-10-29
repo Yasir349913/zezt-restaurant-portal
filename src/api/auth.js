@@ -17,7 +17,7 @@ export const registerCustomer = async (data) => {
 };
 export const registerRestaurantOwner = async (data) => {
   try {
-    const res = await userApi.post("/restaurant-owner", data);
+    const res = await userApi.post("/user/restaurant-owner", data);
     return res.data;
   } catch (err) {
     throw err.response?.data || { error: "Something went wrong" };

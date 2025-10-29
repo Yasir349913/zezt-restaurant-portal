@@ -1,594 +1,503 @@
-// src/pages/settings/RestaurantForm.jsx
-import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+// src/assets/Components/Settings/RestaurantForm.jsx
+import React, { useState, useEffect } from "react";
 import {
-  fetchRestaurantProfile,
   createRestaurantProfile,
+  fetchRestaurantProfile,
+  updateRestaurantProfile,
 } from "../../../api/Setting";
-import { attachTokenToApis } from "../../../api/authHelpers";
-import {
-  validateEmail,
-  validatePhone,
-} from "../../../api/services/settingsServices";
+import { useNavigate } from "react-router-dom";
 import { useRestaurant } from "../../../context/RestaurantContext";
-
-/**
- * Extract user id from a JWT stored in localStorage.
- * Accepts either the raw token or "Bearer <token>".
- * Returns _id | id | userId or null.
- */
-const getUserIdFromToken = (token) => {
-  if (!token) return null;
-  try {
-    const raw = token.startsWith("Bearer ") ? token.split(" ")[1] : token;
-    const payload = raw.split(".")[1];
-    if (!payload) return null;
-    // base64 decode (browser)
-    const decoded = JSON.parse(
-      atob(payload.replace(/-/g, "+").replace(/_/g, "/"))
-    );
-    return decoded._id || decoded.id || decoded.userId || null;
-  } catch (err) {
-    console.warn("Failed to parse token payload:", err);
-    return null;
-  }
-};
+import StripeService from "../../../api/services/Stripeservices";
 
 const RestaurantForm = () => {
   const navigate = useNavigate();
-
-  // get setter from RestaurantContext
   const { setRestaurantId } = useRestaurant();
 
-  const [loading, setLoading] = useState(true);
-  const [hasRestaurant, setHasRestaurant] = useState(false);
-  const [user, setUser] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [message, setMessage] = useState({ type: null, text: null });
 
-  const [form, setForm] = useState({
-    name: "",
-    address: { street: "", city: "", state: "", zip: "", country: "" },
-    phone: "",
+  const [formData, setFormData] = useState({
+    restaurantName: "",
     email: "",
+    phone: "",
+    address: {
+      street: "",
+      city: "",
+      state: "",
+      zipCode: "",
+      country: "",
+    },
     cuisine: "",
+    capacity: "",
     description: "",
-    status: "open",
     latitude: "",
     longitude: "",
+    status: "open", // ✅ Added status field
   });
 
-  const [errors, setErrors] = useState({});
-  const [submitting, setSubmitting] = useState(false);
-  const [serverMessage, setServerMessage] = useState(null);
-
+  // ✅ Load existing restaurant
   useEffect(() => {
-    let mounted = true;
-    (async () => {
+    const loadExistingRestaurant = async () => {
       try {
-        const data = await fetchRestaurantProfile();
-        if (!mounted) return;
-        setUser(data.user || null);
+        console.log("🔍 Checking for existing restaurant...");
+        const profile = await fetchRestaurantProfile();
 
-        if (data.restaurant) {
-          setHasRestaurant(true);
+        const restaurant = profile?.restaurant;
 
-          // set context (and localStorage via provider) so dashboard can use it
-          const existingId =
-            data.restaurant._id ||
-            data.restaurant.id ||
-            data.restaurant.restaurantId ||
-            null;
-          if (existingId && typeof setRestaurantId === "function") {
-            try {
-              setRestaurantId(existingId);
-            } catch (e) {
-              console.warn("Failed to set restaurant id in context:", e);
+        if (restaurant && Object.keys(restaurant).length > 0) {
+          console.log("✅ Existing restaurant found - EDIT MODE");
+          console.log("Restaurant data:", restaurant);
+          setIsEditing(true);
+
+          // ✅ Extract latitude/longitude from location.coordinates
+          const longitude = restaurant.location?.coordinates?.[0] || "";
+          const latitude = restaurant.location?.coordinates?.[1] || "";
+
+          // ✅ Map backend to frontend - ALL FIELDS
+          setFormData({
+            restaurantName: restaurant.name || "",
+            email: restaurant.email || "",
+            phone: restaurant.phone || "",
+            address: {
+              street: restaurant.address?.street || "",
+              city: restaurant.address?.city || "",
+              state: restaurant.address?.state || "",
+              zipCode:
+                restaurant.address?.zip || restaurant.address?.zipCode || "",
+              country: restaurant.address?.country || "",
+            },
+            cuisine: Array.isArray(restaurant.cuisine)
+              ? restaurant.cuisine.join(", ")
+              : restaurant.cuisine || "",
+            capacity: restaurant.total_capacity || restaurant.capacity || "",
+            description: restaurant.description || "",
+            latitude: latitude,
+            longitude: longitude,
+            status: restaurant.status || "open", // ✅ Map status
+          });
+
+          // Save restaurant ID
+          const restaurantId = restaurant._id || restaurant.id;
+          if (restaurantId) {
+            localStorage.setItem("restaurantId", restaurantId);
+            if (typeof setRestaurantId === "function") {
+              setRestaurantId(restaurantId);
+            }
+            if (StripeService.setRestaurantId) {
+              StripeService.setRestaurantId(restaurantId);
             }
           }
         } else {
-          setHasRestaurant(false);
-          setForm((prev) => ({ ...prev, email: data.user?.email || "" }));
+          console.log("ℹ️ No restaurant - CREATE MODE");
+          setIsEditing(false);
         }
-      } catch (e) {
-        console.error("Error fetching restaurant profile:", e);
-        const status = e?.status || e?.response?.status;
-        if (status === 401) {
-          navigate("/login");
-        } else {
-          setServerMessage("Failed to load profile. Try again later.");
-        }
-      } finally {
-        if (mounted) setLoading(false);
+      } catch (err) {
+        console.log("ℹ️ CREATE MODE");
+        console.error("Error:", err);
+        setIsEditing(false);
       }
-    })();
-    return () => {
-      mounted = false;
     };
-  }, [navigate, setRestaurantId]);
 
-  const setField = (path, value) => {
-    if (path.startsWith("address.")) {
-      const key = path.split(".")[1];
-      setForm((p) => ({ ...p, address: { ...p.address, [key]: value } }));
-      if (errors.address?.[key])
-        setErrors((p) => ({ ...p, address: { ...p.address, [key]: "" } }));
+    loadExistingRestaurant();
+  }, [setRestaurantId]);
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+
+    if (name.startsWith("address.")) {
+      const field = name.split(".")[1];
+      setFormData((prev) => ({
+        ...prev,
+        address: { ...prev.address, [field]: value },
+      }));
     } else {
-      setForm((p) => ({ ...p, [path]: value }));
-      if (errors[path]) setErrors((p) => ({ ...p, [path]: "" }));
+      setFormData((prev) => ({ ...prev, [name]: value }));
     }
   };
 
-  const validateForm = () => {
-    const e = {};
-    if (!form.name?.trim()) e.name = "Restaurant name is required";
-
-    e.address = {};
-    if (!form.address.street?.trim()) e.address.street = "Street is required";
-    if (!form.address.city?.trim()) e.address.city = "City is required";
-    if (!form.address.state?.trim()) e.address.state = "State is required";
-    if (!form.address.zip?.trim()) e.address.zip = "ZIP is required";
-    if (!form.address.country?.trim())
-      e.address.country = "Country is required";
-    if (Object.values(e.address).every((v) => !v)) delete e.address;
-
-    if (!form.phone?.trim()) e.phone = "Phone is required";
-    else if (!validatePhone(form.phone))
-      e.phone = "Please enter a valid phone number";
-
-    if (!form.email?.trim()) e.email = "Email is required";
-    else if (!validateEmail(form.email))
-      e.email = "Please enter a valid email address";
-
-    const lat = Number(form.latitude);
-    const lon = Number(form.longitude);
-    if (Number.isNaN(lat)) e.latitude = "Latitude must be a valid number";
-    if (Number.isNaN(lon)) e.longitude = "Longitude must be a valid number";
-
-    setErrors(e);
-    return Object.keys(e).length === 0;
-  };
-
-  const handleCreate = async () => {
-    if (!validateForm()) return;
-    setSubmitting(true);
-    setServerMessage(null);
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setMessage({ type: null, text: null });
+    setIsLoading(true);
 
     try {
-      const cuisinesArray = form.cuisine
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean);
-
-      const payload = {
-        name: form.name,
-        address: { ...form.address },
-        phone: form.phone,
-        email: form.email,
-        cuisine: cuisinesArray,
-        description: form.description,
-        status: form.status,
+      // ✅ Map frontend to backend - ALL FIELDS
+      const restaurantData = {
+        name: formData.restaurantName,
+        email: formData.email,
+        phone: formData.phone,
+        address: {
+          street: formData.address.street,
+          city: formData.address.city,
+          state: formData.address.state,
+          zip: formData.address.zipCode,
+          country: formData.address.country,
+        },
+        cuisine: formData.cuisine
+          ? formData.cuisine
+              .split(",")
+              .map((c) => c.trim())
+              .filter(Boolean)
+          : [],
+        total_capacity: parseInt(formData.capacity) || 0,
+        description: formData.description,
         location: {
           type: "Point",
-          coordinates: [Number(form.longitude), Number(form.latitude)],
+          coordinates: [
+            parseFloat(formData.longitude) || 0,
+            parseFloat(formData.latitude) || 0,
+          ],
         },
+        status: formData.status, // ✅ Add status to backend data
       };
 
-      // If backend requires ownerId in body, extract it from token and attach.
-      const storedToken = localStorage.getItem("token");
-      const ownerId = getUserIdFromToken(storedToken);
-      if (ownerId) {
-        payload.owner_id = ownerId;
-      } else {
-        setServerMessage(
-          "Not logged in or session expired. Please log in again."
-        );
-        attachTokenToApis(null);
-        navigate("/login");
-        setSubmitting(false);
-        return;
-      }
+      console.log("📤 Sending to backend:", restaurantData);
 
-      const res = await createRestaurantProfile(payload);
+      let result;
 
-      // Debug: Log the full response to understand its structure
-      console.log("=== CREATE RESTAURANT RESPONSE ===");
-      console.log("Full response:", res);
-      console.log("Response type:", typeof res);
-      console.log("Response keys:", res ? Object.keys(res) : "null");
-      console.log("Stringified:", JSON.stringify(res, null, 2));
+      if (isEditing) {
+        // ============ UPDATE MODE ============
+        console.log("✏️ Updating restaurant...");
+        result = await updateRestaurantProfile(restaurantData);
+        console.log("✅ Updated successfully:", result);
 
-      if (res?.token) {
-        attachTokenToApis(res.token);
-      }
+        setMessage({
+          type: "success",
+          text: "Restaurant updated successfully!",
+        });
 
-      // Try multiple ways to extract restaurant ID from various response structures
-      let createdId = null;
-
-      // Strategy 1: Check res.restaurant object
-      if (res?.restaurant) {
-        createdId =
-          res.restaurant._id ||
-          res.restaurant.id ||
-          res.restaurant.restaurantId;
-        console.log("Strategy 1 (res.restaurant):", createdId);
-      }
-
-      // Strategy 2: Check if response IS the restaurant object (no wrapper)
-      if (!createdId && res && typeof res === "object") {
-        createdId = res._id || res.id || res.restaurantId;
-        console.log("Strategy 2 (res directly):", createdId);
-      }
-
-      // Strategy 3: Check res.data.restaurant
-      if (!createdId && res?.data?.restaurant) {
-        createdId =
-          res.data.restaurant._id ||
-          res.data.restaurant.id ||
-          res.data.restaurant.restaurantId;
-        console.log("Strategy 3 (res.data.restaurant):", createdId);
-      }
-
-      // Strategy 4: Check res.data directly
-      if (!createdId && res?.data && typeof res.data === "object") {
-        createdId = res.data._id || res.data.id || res.data.restaurantId;
-        console.log("Strategy 4 (res.data):", createdId);
-      }
-
-      console.log("Final extracted ID:", createdId);
-
-      if (!createdId) {
-        console.error(
-          "Could not extract restaurant ID from response structure"
-        );
-        console.error("Response was:", res);
-
-        // Don't fail completely - set a warning but continue
-        setServerMessage(
-          "Restaurant created, but couldn't extract ID. Please refresh the page."
-        );
-
-        // Try to refetch profile to get the ID
-        try {
-          const refreshed = await fetchRestaurantProfile();
-          if (refreshed?.restaurant) {
-            const refreshedId =
-              refreshed.restaurant._id ||
-              refreshed.restaurant.id ||
-              refreshed.restaurant.restaurantId;
-            if (refreshedId) {
-              createdId = refreshedId;
-              console.log("Got ID from refetch:", createdId);
-            }
-          }
-        } catch (refetchErr) {
-          console.warn("Refetch also failed:", refetchErr);
-        }
-
-        // If we still don't have an ID, just navigate and let dashboard handle it
-        if (!createdId) {
-          setHasRestaurant(true);
-          await new Promise((resolve) => setTimeout(resolve, 150));
+        setTimeout(() => {
           navigate("/dashboard");
-          return;
+        }, 1500);
+      } else {
+        // ============ CREATE MODE ============
+        console.log("🏪 Creating restaurant...");
+        result = await createRestaurantProfile(restaurantData);
+        console.log("✅ Created successfully:", result);
+
+        const restaurant = result?.restaurant;
+        const restaurantId = restaurant?._id || restaurant?.id;
+
+        if (!restaurantId) {
+          throw new Error("Restaurant ID not found");
         }
-      }
 
-      // We have a valid ID - store it
-      if (typeof setRestaurantId === "function") {
-        setRestaurantId(createdId);
+        console.log("💾 Saving restaurant ID:", restaurantId);
 
-        // Double-ensure localStorage is set immediately
+        if (typeof setRestaurantId === "function") {
+          setRestaurantId(restaurantId);
+        }
+        localStorage.setItem("restaurantId", restaurantId);
+
+        if (StripeService.setRestaurantId) {
+          StripeService.setRestaurantId(restaurantId);
+        }
+
+        // ============ CHECK STRIPE ============
+        console.log("💳 Checking Stripe...");
+
         try {
-          localStorage.setItem("restaurantId", createdId);
-          console.log("Saved restaurant ID to localStorage:", createdId);
-        } catch (storageErr) {
-          console.warn("Could not write to localStorage:", storageErr);
+          const stripeStatus = await StripeService.checkStatus();
+          console.log("Stripe status:", stripeStatus);
+
+          const isStripeActive =
+            stripeStatus?.stripeAccountActive === true ||
+            stripeStatus?.status === "active" ||
+            stripeStatus?.active === true;
+
+          if (!isStripeActive) {
+            console.log("❌ Stripe NOT active → /payments");
+            setMessage({
+              type: "success",
+              text: "Restaurant created! Please complete payment setup.",
+            });
+
+            setTimeout(() => {
+              navigate("/payments");
+            }, 1500);
+          } else {
+            console.log("✅ Stripe active → /dashboard");
+            setMessage({
+              type: "success",
+              text: "Restaurant created successfully!",
+            });
+
+            setTimeout(() => {
+              navigate("/dashboard");
+            }, 1500);
+          }
+        } catch (stripeError) {
+          console.error("❌ Stripe check failed:", stripeError);
+          setMessage({
+            type: "success",
+            text: "Restaurant created! Please complete payment setup.",
+          });
+
+          setTimeout(() => {
+            navigate("/payments");
+          }, 1500);
         }
       }
+    } catch (error) {
+      console.error("❌ Error:", error);
+      console.error("Error details:", error.response?.data);
 
-      setHasRestaurant(true);
-      setServerMessage("Restaurant profile created successfully!");
+      const errorMsg =
+        error?.response?.data?.message ||
+        error?.message ||
+        `Failed to ${isEditing ? "update" : "create"} restaurant`;
 
-      // Small delay to ensure context propagates before navigation
-      await new Promise((resolve) => setTimeout(resolve, 150));
-
-      // Navigate to dashboard
-      navigate("/dashboard");
-    } catch (err) {
-      console.error("create restaurant error:", err);
-      const msg =
-        err?.message ||
-        err?.error ||
-        err?.response?.data?.message ||
-        "Failed to create restaurant";
-      setServerMessage(msg);
-
-      // map backend validation errors to frontend fields if present
-      const backendErrors = err?.response?.data?.errors || err?.errors;
-      if (backendErrors && typeof backendErrors === "object") {
-        const fieldErrs = {};
-        for (const [k, v] of Object.entries(backendErrors)) {
-          fieldErrs[k] = Array.isArray(v) ? v[0] : String(v);
-        }
-        setErrors((prev) => ({ ...prev, ...fieldErrs }));
-      }
+      setMessage({ type: "error", text: errorMsg });
     } finally {
-      setSubmitting(false);
+      setIsLoading(false);
     }
   };
 
-  if (loading) {
-    return (
-      <div
-        className="bg-white rounded-lg border border-gray-200 p-6 w-full max-w-4xl ml-8 flex items-center justify-center"
-        style={{ minHeight: 600 }}
-      >
-        <div className="text-gray-500">Loading restaurant profile...</div>
-      </div>
-    );
-  }
-
-  if (hasRestaurant) {
-    return (
-      <div className="bg-white rounded-lg border border-gray-200 p-6 w-full max-w-4xl ml-8">
-        <h2 className="text-lg font-semibold mb-2">
-          Restaurant profile already exists
-        </h2>
-        <p className="text-sm text-gray-600 mb-4">
-          You already have a restaurant profile.
-        </p>
-        <button
-          onClick={() => navigate("/dashboard")}
-          className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
-        >
-          Go to Dashboard
-        </button>
-      </div>
-    );
-  }
-
   return (
-    <div className="bg-white rounded-lg border border-gray-200 p-6 w-full max-w-4xl ml-8">
-      {serverMessage && (
-        <div className="mb-4 text-sm px-3 py-2 rounded-md bg-yellow-50 text-yellow-800 border border-yellow-200">
-          {serverMessage}
+    <div className="max-w-4xl mx-auto p-6">
+      <h2 className="text-2xl font-bold mb-6">
+        {isEditing ? "Update Restaurant Profile" : "Create Restaurant Profile"}
+      </h2>
+
+      {/* Message Display */}
+      {message.text && (
+        <div
+          className={`mb-4 p-4 rounded-md ${
+            message.type === "error"
+              ? "bg-red-50 text-red-700 border border-red-200"
+              : "bg-green-50 text-green-700 border border-green-200"
+          }`}
+        >
+          {message.text}
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Name */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Restaurant Name *
-          </label>
-          <input
-            type="text"
-            value={form.name}
-            onChange={(e) => setField("name", e.target.value)}
-            className={`w-full h-10 px-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-              errors.name ? "border-red-300" : "border-gray-300"
-            }`}
-          />
-          {errors.name && (
-            <p className="text-red-500 text-xs mt-1">{errors.name}</p>
-          )}
+      <form onSubmit={handleSubmit} className="space-y-6">
+        {/* Basic Information */}
+        <div className="bg-white p-6 rounded-lg shadow">
+          <h3 className="text-lg font-semibold mb-4">Basic Information</h3>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium mb-2">
+                Restaurant Name *
+              </label>
+              <input
+                type="text"
+                name="restaurantName"
+                value={formData.restaurantName}
+                onChange={handleChange}
+                required
+                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-2">Email *</label>
+              <input
+                type="email"
+                name="email"
+                value={formData.email}
+                onChange={handleChange}
+                required
+                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-2">Phone *</label>
+              <input
+                type="tel"
+                name="phone"
+                value={formData.phone}
+                onChange={handleChange}
+                required
+                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-2">Cuisine</label>
+              <input
+                type="text"
+                name="cuisine"
+                value={formData.cuisine}
+                onChange={handleChange}
+                placeholder="e.g. Pakistani, Italian"
+                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-2">
+                Capacity *
+              </label>
+              <input
+                type="number"
+                name="capacity"
+                value={formData.capacity}
+                onChange={handleChange}
+                required
+                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500"
+              />
+            </div>
+
+            {/* ✅ Status Field */}
+            <div>
+              <label className="block text-sm font-medium mb-2">Status *</label>
+              <select
+                name="status"
+                value={formData.status}
+                onChange={handleChange}
+                required
+                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500"
+              >
+                <option value="open">Open</option>
+                <option value="closed">Closed</option>
+                <option value="temporarily-closed">Temporarily Closed</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="mt-4">
+            <label className="block text-sm font-medium mb-2">
+              Description
+            </label>
+            <textarea
+              name="description"
+              value={formData.description}
+              onChange={handleChange}
+              rows="3"
+              placeholder="Describe your restaurant..."
+              className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500"
+            />
+          </div>
         </div>
 
-        {/* Phone */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Phone *
-          </label>
-          <input
-            type="text"
-            value={form.phone}
-            onChange={(e) => setField("phone", e.target.value)}
-            className={`w-full h-10 px-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-              errors.phone ? "border-red-300" : "border-gray-300"
-            }`}
-          />
-          {errors.phone && (
-            <p className="text-red-500 text-xs mt-1">{errors.phone}</p>
-          )}
+        {/* Address */}
+        <div className="bg-white p-6 rounded-lg shadow">
+          <h3 className="text-lg font-semibold mb-4">Address</h3>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium mb-2">Street *</label>
+              <input
+                type="text"
+                name="address.street"
+                value={formData.address.street}
+                onChange={handleChange}
+                required
+                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-2">City *</label>
+              <input
+                type="text"
+                name="address.city"
+                value={formData.address.city}
+                onChange={handleChange}
+                required
+                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-2">State *</label>
+              <input
+                type="text"
+                name="address.state"
+                value={formData.address.state}
+                onChange={handleChange}
+                required
+                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-2">
+                Zip Code *
+              </label>
+              <input
+                type="text"
+                name="address.zipCode"
+                value={formData.address.zipCode}
+                onChange={handleChange}
+                required
+                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-2">
+                Country *
+              </label>
+              <input
+                type="text"
+                name="address.country"
+                value={formData.address.country}
+                onChange={handleChange}
+                required
+                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500"
+              />
+            </div>
+          </div>
         </div>
 
-        {/* Email */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Email *
-          </label>
-          <input
-            type="email"
-            value={form.email}
-            onChange={(e) => setField("email", e.target.value)}
-            className={`w-full h-10 px-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-              errors.email ? "border-red-300" : "border-gray-300"
-            }`}
-          />
-          {errors.email && (
-            <p className="text-red-500 text-xs mt-1">{errors.email}</p>
-          )}
+        {/* Location Coordinates */}
+        <div className="bg-white p-6 rounded-lg shadow">
+          <h3 className="text-lg font-semibold mb-4">Location Coordinates</h3>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium mb-2">Latitude</label>
+              <input
+                type="number"
+                step="any"
+                name="latitude"
+                value={formData.latitude}
+                onChange={handleChange}
+                placeholder="e.g. 31.44247"
+                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-2">
+                Longitude
+              </label>
+              <input
+                type="number"
+                step="any"
+                name="longitude"
+                value={formData.longitude}
+                onChange={handleChange}
+                placeholder="e.g. 74.1889"
+                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500"
+              />
+            </div>
+          </div>
         </div>
 
-        {/* Cuisine */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Cuisine (comma-separated)
-          </label>
-          <input
-            type="text"
-            value={form.cuisine}
-            onChange={(e) => setField("cuisine", e.target.value)}
-            placeholder="e.g. Pakistani, BBQ"
-            className="w-full h-10 px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-          />
-        </div>
-      </div>
-
-      {/* Address */}
-      <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Street *
-          </label>
-          <input
-            type="text"
-            value={form.address.street}
-            onChange={(e) => setField("address.street", e.target.value)}
-            className={`w-full h-10 px-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 ${
-              errors.address?.street ? "border-red-300" : "border-gray-300"
-            }`}
-          />
-          {errors.address?.street && (
-            <p className="text-red-500 text-xs mt-1">{errors.address.street}</p>
-          )}
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            City *
-          </label>
-          <input
-            type="text"
-            value={form.address.city}
-            onChange={(e) => setField("address.city", e.target.value)}
-            className={`w-full h-10 px-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 ${
-              errors.address?.city ? "border-red-300" : "border-gray-300"
-            }`}
-          />
-          {errors.address?.city && (
-            <p className="text-red-500 text-xs mt-1">{errors.address.city}</p>
-          )}
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            State *
-          </label>
-          <input
-            type="text"
-            value={form.address.state}
-            onChange={(e) => setField("address.state", e.target.value)}
-            className={`w-full h-10 px-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 ${
-              errors.address?.state ? "border-red-300" : "border-gray-300"
-            }`}
-          />
-          {errors.address?.state && (
-            <p className="text-red-500 text-xs mt-1">{errors.address.state}</p>
-          )}
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            ZIP *
-          </label>
-          <input
-            type="text"
-            value={form.address.zip}
-            onChange={(e) => setField("address.zip", e.target.value)}
-            className={`w-full h-10 px-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 ${
-              errors.address?.zip ? "border-red-300" : "border-gray-300"
-            }`}
-          />
-          {errors.address?.zip && (
-            <p className="text-red-500 text-xs mt-1">{errors.address.zip}</p>
-          )}
-        </div>
-
-        <div className="md:col-span-2">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Country *
-          </label>
-          <input
-            type="text"
-            value={form.address.country}
-            onChange={(e) => setField("address.country", e.target.value)}
-            className={`w-full h-10 px-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 ${
-              errors.address?.country ? "border-red-300" : "border-gray-300"
-            }`}
-          />
-          {errors.address?.country && (
-            <p className="text-red-500 text-xs mt-1">
-              {errors.address.country}
-            </p>
-          )}
-        </div>
-      </div>
-
-      {/* Geo + Description + Status */}
-      <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Latitude *
-          </label>
-          <input
-            type="number"
-            value={form.latitude}
-            onChange={(e) => setField("latitude", e.target.value)}
-            placeholder="e.g. 31.41344"
-            className={`w-full h-10 px-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 ${
-              errors.latitude ? "border-red-300" : "border-gray-300"
-            }`}
-          />
-          {errors.latitude && (
-            <p className="text-red-500 text-xs mt-1">{errors.latitude}</p>
-          )}
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Longitude *
-          </label>
-          <input
-            type="number"
-            value={form.longitude}
-            onChange={(e) => setField("longitude", e.target.value)}
-            placeholder="e.g. 74.17685"
-            className={`w-full h-10 px-3 py-2 text-sm border rounded-md focus:outline-none focus:ring-2 ${
-              errors.longitude ? "border-red-300" : "border-gray-300"
-            }`}
-          />
-          {errors.longitude && (
-            <p className="text-red-500 text-xs mt-1">{errors.longitude}</p>
-          )}
-        </div>
-
-        <div className="md:col-span-2">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Description
-          </label>
-          <textarea
-            rows={3}
-            value={form.description}
-            onChange={(e) => setField("description", e.target.value)}
-            placeholder="Enter Description"
-            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 resize-none placeholder-gray-400"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Status
-          </label>
-          <select
-            value={form.status}
-            onChange={(e) => setField("status", e.target.value)}
-            className="w-full h-10 px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2"
+        {/* Submit Button */}
+        <div className="flex justify-end">
+          <button
+            type="submit"
+            disabled={isLoading}
+            className="bg-red-500 text-white px-6 py-3 rounded-md hover:bg-red-600 disabled:opacity-60 disabled:cursor-not-allowed font-medium transition-colors"
           >
-            <option value="open">Open</option>
-            <option value="closed">Closed</option>
-          </select>
+            {isLoading
+              ? isEditing
+                ? "Updating..."
+                : "Creating..."
+              : isEditing
+              ? "Update Restaurant"
+              : "Create Restaurant"}
+          </button>
         </div>
-      </div>
-
-      <div className="mt-8">
-        <button
-          onClick={handleCreate}
-          disabled={submitting}
-          className="w-full h-11 bg-red-400 hover:bg-red-500 text-white text-sm font-medium rounded-md transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {submitting ? "Creating..." : "Create Profile"}
-        </button>
-      </div>
+      </form>
     </div>
   );
 };

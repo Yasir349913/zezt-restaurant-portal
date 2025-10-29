@@ -1,10 +1,9 @@
 // src/api/services/Messagesservices.jsx
 import { userApi } from "../api";
 
-// Sirf restaurant ki conversations fetch karo
 export const fetchRestaurantConversations = async (restaurantId) => {
   try {
-    const response = await userApi.get(`/api/chat/restaurant/${restaurantId}`);
+    const response = await userApi.get(`/chat/restaurant/${restaurantId}`);
 
     return response.data.map((chat) => ({
       id: chat.roomId,
@@ -30,34 +29,46 @@ export const fetchRestaurantConversations = async (restaurantId) => {
   }
 };
 
-// Messages fetch by roomId
+// ✅ FIXED: Extract _id from sender object properly
 export const fetchMessages = async (roomId) => {
   try {
-    const response = await userApi.get(`/api/chat/${roomId}`);
+    const response = await userApi.get(`/chat/${roomId}`);
 
     if (!response.data.messages) return [];
 
-    return response.data.messages.map((msg) => ({
-      id: msg._id,
-      sender: msg.sender._id,
-      content: msg.text,
-      time: new Date(msg.createdAt).toLocaleTimeString("en-US", {
-        hour: "numeric",
-        minute: "2-digit",
-        hour12: true,
-      }),
-      type: msg.messageType || "text",
-    }));
+    console.log("📥 Raw messages from backend:", response.data.messages); // Debug log
+
+    return response.data.messages.map((msg) => {
+      // ✅ Extract sender ID properly (handle both populated and unpopulated)
+      const senderId =
+        typeof msg.sender === "string"
+          ? msg.sender
+          : msg.sender?._id || msg.sender?.id;
+
+      console.log("🔍 Message sender ID:", senderId, "Type:", typeof senderId); // Debug log
+
+      return {
+        id: msg._id,
+        sender: senderId, // ✅ Now this is always a string ID
+        content: msg.text,
+        timestamp: msg.createdAt, // ✅ Added for sorting
+        time: new Date(msg.createdAt).toLocaleTimeString("en-US", {
+          hour: "numeric",
+          minute: "2-digit",
+          hour12: true,
+        }),
+        type: msg.messageType || "text",
+      };
+    });
   } catch (error) {
     console.error("Error fetching messages:", error);
     return [];
   }
 };
 
-// Conversation details
 export const getConversationById = async (roomId) => {
   try {
-    const response = await userApi.get(`/api/chat/${roomId}`);
+    const response = await userApi.get(`/chat/${roomId}`);
     const chatInfo = response.data.chatInfo;
 
     return {
@@ -76,7 +87,6 @@ export const getConversationById = async (roomId) => {
   }
 };
 
-// Search (client-side filter)
 export const searchConversations = (searchTerm, conversations) => {
   return conversations.filter((conv) =>
     conv.name.toLowerCase().includes(searchTerm.toLowerCase())

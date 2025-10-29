@@ -1,25 +1,29 @@
 // src/api/authHelpers.js
-import { userApi, authApi, verify } from "./api";
+import { http, userApi, authApi, verify } from "./api";
 
 /**
- * Attach access token to axios instances:
- *  - x-auth-token: <raw access token>
- *  - Authorization: Bearer <access token>
+ * Attach access token to axios instances
  */
 export const attachTokenToApis = (accessToken) => {
+  console.log(
+    "[attachTokenToApis] Attaching token:",
+    accessToken ? "YES" : "NO"
+  );
+
   if (accessToken) {
     const bearer = `Bearer ${accessToken}`;
-    [userApi, authApi, verify].forEach((instance) => {
+    [http, userApi, authApi, verify].forEach((instance) => {
       instance.defaults.headers.common["Authorization"] = bearer;
       instance.defaults.headers.common["x-auth-token"] = accessToken;
     });
+
     try {
       localStorage.setItem("token", accessToken);
     } catch (err) {
       console.warn("Failed to store token in localStorage", err);
     }
   } else {
-    [userApi, authApi, verify].forEach((instance) => {
+    [http, userApi, authApi, verify].forEach((instance) => {
       delete instance.defaults.headers.common["Authorization"];
       delete instance.defaults.headers.common["x-auth-token"];
     });
@@ -31,31 +35,30 @@ export const attachTokenToApis = (accessToken) => {
   }
 };
 
-/** store refresh token separately (raw string) */
+/** Remove refresh token from localStorage (not needed since it's in cookie) */
 export const storeRefreshToken = (refreshToken) => {
-  try {
-    if (refreshToken) localStorage.setItem("refreshToken", refreshToken);
-    else localStorage.removeItem("refreshToken");
-  } catch (err) {
-    console.warn("Failed to set refreshToken", err);
-  }
+  // Not needed anymore - refresh token is in httpOnly cookie
+  // Keeping this function for backward compatibility
+  console.log("[storeRefreshToken] Refresh token stored in httpOnly cookie");
 };
 
-/** Remove all client-side auth state (call on logout) */
+/** Remove all client-side auth state */
 export const clearClientAuth = () => {
   attachTokenToApis(null);
-  storeRefreshToken(null);
   try {
     localStorage.removeItem("user");
+    localStorage.removeItem("token");
   } catch (e) {}
 };
 
-/** Initialize axios defaults from storage (call once at app startup) */
+/** Initialize axios defaults from storage */
 export const initAuthFromStorage = () => {
+  console.log("[initAuthFromStorage] Initializing...");
   try {
     const token = localStorage.getItem("token");
+    console.log("[initAuthFromStorage] Token found:", token ? "YES" : "NO");
     if (token) attachTokenToApis(token);
   } catch (err) {
-    /* ignore */
+    console.error("[initAuthFromStorage] Error:", err);
   }
 };

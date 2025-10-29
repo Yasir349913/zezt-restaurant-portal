@@ -40,17 +40,6 @@ const Loginform = ({
           </div>
         )}
 
-        <button
-          type="button"
-          className="w-full border border-gray-300 rounded-md py-3 flex items-center justify-center gap-3 mb-4 hover:bg-gray-50 transition-colors bg-white disabled:opacity-60"
-          disabled={loading}
-        >
-          <FcGoogle className="w-5 h-5" />
-          <span className="text-sm font-medium text-gray-700">
-            Continue with Google
-          </span>
-        </button>
-
         <div className="text-center text-sm text-gray-400 my-6">
           Login with email
         </div>

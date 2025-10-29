@@ -1,6 +1,6 @@
 // src/components/Analytics/Analyticscards.jsx
 import React, { useEffect, useState } from "react";
-import Card from "./Card"; // your existing small card component
+import Card from "./Card";
 import { getMonthlyStats } from "../../../api/services/Analyticsservice";
 import { useRestaurant } from "../../../context/RestaurantContext";
 
@@ -17,32 +17,36 @@ const Analyticscards = ({ onTabChange }) => {
       setLoading(true);
       try {
         const data = await getMonthlyStats(restaurantId);
-        // create card items in the same shape your Card expects:
+
+        console.log("📊 Backend Response:", data); // Debug ke liye
+
+        // Backend se jo data aa raha hai uske according cards banao
         const items = [
           {
-            name: "Active Deals",
-            number: data.activeDealsCount ?? 0,
-            percentage: 0,
+            name: "Total Bookings",
+            number: data.totalBookings ?? 0,
+            percentage: 0, // Agar percentage calculation chahiye to add kar sakte ho
           },
           {
             name: "Total Redemptions",
-            number: data.totalRedemptions ?? 0,
+            number: data.redemptions ?? 0,
             percentage: 0,
           },
           {
             name: "Total Revenue",
-            number: data.totalRevenue ?? 0,
+            number: `Rs ${data.totalRevenue?.toLocaleString() ?? 0}`,
             percentage: 0,
           },
           {
-            name: "Avg Redemption Rate",
-            number: data.avgRedemptionRate ?? "0.00%",
+            name: "Average Rating",
+            number: data.averageRating?.toFixed(1) ?? "0.0",
             percentage: 0,
           },
         ];
+
         setAnalyticsItems(items);
       } catch (err) {
-        console.error("Failed to fetch monthly analytics:", err);
+        console.error("❌ Failed to fetch monthly analytics:", err);
         setAnalyticsItems([]);
       } finally {
         setLoading(false);
@@ -65,14 +69,18 @@ const Analyticscards = ({ onTabChange }) => {
 
   return (
     <div className="space-y-6">
+      {/* Analytics Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
         {loading
-          ? // simple placeholders while loading
+          ? // Loading skeleton
             [1, 2, 3, 4].map((i) => (
               <div
                 key={i}
                 className="bg-white rounded-lg p-4 h-28 animate-pulse"
-              />
+              >
+                <div className="h-4 bg-gray-200 rounded w-3/4 mb-3"></div>
+                <div className="h-6 bg-gray-200 rounded w-1/2"></div>
+              </div>
             ))
           : analyticsItems.map((item, index) => (
               <Card
@@ -84,6 +92,7 @@ const Analyticscards = ({ onTabChange }) => {
             ))}
       </div>
 
+      {/* Navigation Tabs */}
       <div className="flex flex-wrap bg-white border border-gray-200 rounded-md p-1 gap-2 sm:gap-4">
         {navigationTabs.map((tab) => (
           <span
