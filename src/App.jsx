@@ -1,7 +1,8 @@
 // src/App.jsx
 import React from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { NotificationProvider } from "./context/NotificationContext";
+// ❌ Remove this import
+// import { NotificationProvider } from "./context/NotificationContext";
 import NotificationToast from "./assets/Components/Notifications/NotificationToast";
 
 import Login from "./assets/Pages/Login";
@@ -20,13 +21,13 @@ import RevenueLayout from "./assets/Components/Layout/Revenuelayout";
 import Occupancylayout from "./assets/Components/Layout/Occupancylayout";
 import Notificationslayout from "./assets/Components/Layout/Notificationlayout";
 import HotDealsLayout from "./assets/Components/Layout/Hotdealslayout";
+import { SocketProvider } from "./context/SocketContext";
 
 export default function App() {
   return (
-    <BrowserRouter>
-      <NotificationProvider>
-        {" "}
-        {/* ✅ Wrap everything */}
+    <SocketProvider>
+      <BrowserRouter>
+        {/* ❌ Removed NotificationProvider */}
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route
@@ -44,11 +45,7 @@ export default function App() {
             <Route path="/payments" element={<PaymentsLayout />} />
             <Route path="/revenue" element={<RevenueLayout />} />
             <Route path="/occupancy" element={<Occupancylayout />} />
-            <Route
-              path="/notifications"
-              element={<Notificationslayout />}
-            />{" "}
-            {/* ✅ Already there */}
+            <Route path="/notifications" element={<Notificationslayout />} />
             <Route path="/settings" element={<Settingslayout />}>
               <Route index element={<div>Select a settings tab</div>} />
               <Route path="restaurant" element={<RestaurantForm />} />
@@ -57,9 +54,9 @@ export default function App() {
 
           <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
-        {/* ✅ Add toast notifications globally */}
+        {/* ✅ Toast will now use SocketContext */}
         <NotificationToast />
-      </NotificationProvider>
-    </BrowserRouter>
+      </BrowserRouter>
+    </SocketProvider>
   );
 }

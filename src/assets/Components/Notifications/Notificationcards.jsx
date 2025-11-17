@@ -28,7 +28,7 @@ const Notificationcards = ({ onTabChange, userIdProp = null }) => {
     return () => {
       mounted = false;
     };
-  }, [userId]);
+  }, []);
 
   const navigationTabs = ["All", "Unread", "Bookings", "Deals", "Messages"];
 

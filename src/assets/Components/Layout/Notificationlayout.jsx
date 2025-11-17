@@ -1,30 +1,37 @@
 import React, { useState, useEffect } from "react";
-import { useNotifications } from "../../../context/NotificationContext";
+import { useSocket } from "../../../context/SocketContext";
 import {
   Bell,
   CheckCheck,
-  Trash2,
-  Filter,
   Search,
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
 
 export default function Notificationslayout() {
-  const { notifications, unreadCount, markAsRead, markAllAsRead, isConnected } =
-    useNotifications();
-  const [filter, setFilter] = useState("all"); // all, unread, read
+  const { notifications, unreadCount, markAsRead, isConnected } = useSocket();
+
+  const [filter, setFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
-  // Filter notifications
+  const markAllAsRead = async () => {
+    try {
+      const unreadNotifs = notifications.filter((n) => !n.isRead);
+      for (const notif of unreadNotifs) {
+        await markAsRead(notif._id);
+      }
+      console.log("✅ All marked as read");
+    } catch (error) {
+      console.error("❌ Error:", error);
+    }
+  };
+
   const filteredNotifications = notifications.filter((notification) => {
-    // Apply filter
     if (filter === "unread" && notification.isRead) return false;
     if (filter === "read" && !notification.isRead) return false;
 
-    // Apply search
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       return (
@@ -36,7 +43,6 @@ export default function Notificationslayout() {
     return true;
   });
 
-  // Pagination
   const totalPages = Math.ceil(filteredNotifications.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const paginatedNotifications = filteredNotifications.slice(
@@ -44,7 +50,6 @@ export default function Notificationslayout() {
     startIndex + itemsPerPage
   );
 
-  // Reset to page 1 when filter changes
   useEffect(() => {
     setCurrentPage(1);
   }, [filter, searchQuery]);
@@ -69,17 +74,17 @@ export default function Notificationslayout() {
   };
 
   const getTypeColor = (type) => {
-    if (type.includes("approved") || type.includes("confirmed"))
+    if (type?.includes("approved") || type?.includes("confirmed"))
       return "bg-green-100 text-green-800";
     if (
-      type.includes("rejected") ||
-      type.includes("suspended") ||
-      type.includes("cancelled")
+      type?.includes("rejected") ||
+      type?.includes("suspended") ||
+      type?.includes("cancelled")
     )
       return "bg-red-100 text-red-800";
-    if (type.includes("payment") || type.includes("stripe"))
+    if (type?.includes("payment") || type?.includes("stripe"))
       return "bg-blue-100 text-blue-800";
-    if (type.includes("urgent")) return "bg-red-100 text-red-800";
+    if (type?.includes("urgent")) return "bg-red-100 text-red-800";
     return "bg-gray-100 text-gray-800";
   };
 
@@ -107,9 +112,8 @@ export default function Notificationslayout() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
+    <div className="min-h-screen bg-gray-50 xl:ml-64 pt-14 p-6">
       <div className="max-w-6xl mx-auto">
-        {/* Header */}
         <div className="mb-6">
           <div className="flex items-center justify-between mb-4">
             <div>
@@ -126,7 +130,6 @@ export default function Notificationslayout() {
               </p>
             </div>
 
-            {/* Connection Status */}
             <div className="flex items-center gap-2">
               <div
                 className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium ${
@@ -145,10 +148,8 @@ export default function Notificationslayout() {
             </div>
           </div>
 
-          {/* Actions Bar */}
           <div className="bg-white rounded-lg border border-gray-200 p-4">
             <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
-              {/* Search */}
               <div className="relative flex-1 max-w-md">
                 <Search
                   className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
@@ -163,7 +164,6 @@ export default function Notificationslayout() {
                 />
               </div>
 
-              {/* Filters */}
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => setFilter("all")}
@@ -210,7 +210,6 @@ export default function Notificationslayout() {
           </div>
         </div>
 
-        {/* Notifications List */}
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm">
           {paginatedNotifications.length === 0 ? (
             <div className="text-center py-16">
@@ -228,7 +227,7 @@ export default function Notificationslayout() {
             </div>
           ) : (
             <>
-              {paginatedNotifications.map((notification, index) => (
+              {paginatedNotifications.map((notification) => (
                 <div
                   key={notification._id}
                   className={`p-4 border-b border-gray-200 last:border-b-0 hover:bg-gray-50 transition-colors ${
@@ -236,7 +235,6 @@ export default function Notificationslayout() {
                   }`}
                 >
                   <div className="flex items-start gap-4">
-                    {/* Icon */}
                     <div className="flex-shrink-0">
                       <div
                         className={`w-12 h-12 rounded-full flex items-center justify-center text-2xl ${getTypeColor(
@@ -247,7 +245,6 @@ export default function Notificationslayout() {
                       </div>
                     </div>
 
-                    {/* Content */}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex-1">
@@ -264,10 +261,10 @@ export default function Notificationslayout() {
                             {notification.message}
                           </p>
 
-                          {notification.restaurantName && (
+                          {notification.restaurantId?.restaurantName && (
                             <div className="flex items-center gap-2 mb-2">
                               <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-gray-100 text-gray-700">
-                                {notification.restaurantName}
+                                {notification.restaurantId.restaurantName}
                               </span>
                             </div>
                           )}
@@ -279,7 +276,6 @@ export default function Notificationslayout() {
                           </div>
                         </div>
 
-                        {/* Actions */}
                         <div className="flex items-center gap-2">
                           {!notification.isRead && (
                             <button
@@ -304,7 +300,6 @@ export default function Notificationslayout() {
                 </div>
               ))}
 
-              {/* Pagination */}
               {totalPages > 1 && (
                 <div className="p-4 border-t border-gray-200 bg-gray-50">
                   <div className="flex items-center justify-between">

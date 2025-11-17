@@ -3,7 +3,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { Menu, User2, LogOut, Home, ExternalLink } from "lucide-react";
 import { useAuth } from "../../../context/AuthContext";
 import { useNavigate } from "react-router-dom";
-import NotificationBell from "../Notifications/NotificationBell";
+import NotificationBell from "../Notifications/NotificationsBell";
 
 const Header = ({ sidebarOpen, setSidebarOpen }) => {
   const { user, logout } = useAuth();
@@ -87,21 +87,21 @@ const Header = ({ sidebarOpen, setSidebarOpen }) => {
         </div>
 
         {/* Right Section */}
-        <div className="flex items-center gap-3">
-          {/* ✅ Replace old notification with NotificationBell */}
+        <div className="flex items-center gap-2">
+          {/* ✅ Notification Bell */}
           <NotificationBell />
 
           {/* User Dropdown */}
           <div className="relative" ref={userRef}>
             <button
               onClick={() => setShowUserMenu(!showUserMenu)}
-              className="flex items-center gap-2 px-2 py-1 hover:bg-gray-100 rounded-md"
+              className="flex items-center gap-2 px-2 py-1 hover:bg-gray-100 rounded-md transition-colors"
             >
-              <div className="w-8 h-8 rounded-full bg-gray-200 overflow-hidden flex items-center justify-center text-sm font-medium text-gray-700">
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 overflow-hidden flex items-center justify-center text-sm font-semibold text-white shadow-sm">
                 {getUserInitials()}
               </div>
 
-              <div className="hidden sm:block text-left max-w-[120px] truncate">
+              <div className="hidden sm:block text-left max-w-[120px]">
                 <p className="text-sm font-medium text-gray-800 truncate">
                   {getUserDisplayName()}
                 </p>
@@ -109,9 +109,9 @@ const Header = ({ sidebarOpen, setSidebarOpen }) => {
             </button>
 
             {showUserMenu && (
-              <div className="absolute right-0 mt-1 w-48 bg-white border border-gray-200 shadow-md rounded-md z-50 py-1">
-                <div className="px-3 py-2 border-b border-gray-100">
-                  <p className="text-sm font-semibold text-gray-800">
+              <div className="absolute right-0 mt-2 w-56 bg-white border border-gray-200 shadow-lg rounded-lg z-50 py-1 overflow-hidden">
+                <div className="px-4 py-3 border-b border-gray-100 bg-gray-50">
+                  <p className="text-sm font-semibold text-gray-800 truncate">
                     {getUserDisplayName()}
                   </p>
                   <p className="text-xs text-gray-500 truncate">
@@ -119,17 +119,21 @@ const Header = ({ sidebarOpen, setSidebarOpen }) => {
                   </p>
                 </div>
                 <button
-                  onClick={() => navigate("/profile")}
-                  className="flex items-center w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                  onClick={() => {
+                    navigate("/profile");
+                    setShowUserMenu(false);
+                  }}
+                  className="flex items-center w-full px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                 >
-                  <User2 size={14} className="mr-2" />
+                  <User2 size={16} className="mr-3" />
                   View Profile
                 </button>
+                <div className="border-t border-gray-100"></div>
                 <button
                   onClick={handleLogout}
-                  className="flex items-center w-full px-3 py-2 text-sm text-red-600 hover:bg-red-50"
+                  className="flex items-center w-full px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors"
                 >
-                  <LogOut size={14} className="mr-2" />
+                  <LogOut size={16} className="mr-3" />
                   Logout
                 </button>
               </div>

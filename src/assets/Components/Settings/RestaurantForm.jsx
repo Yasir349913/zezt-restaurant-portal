@@ -1,4 +1,3 @@
-// src/assets/Components/Settings/RestaurantForm.jsx
 import React, { useState, useEffect } from "react";
 import {
   createRestaurantProfile,
@@ -7,11 +6,13 @@ import {
 } from "../../../api/Setting";
 import { useNavigate } from "react-router-dom";
 import { useRestaurant } from "../../../context/RestaurantContext";
+import { useAuth } from "../../../context/AuthContext"; // ✅ Import useAuth
 import StripeService from "../../../api/services/Stripeservices";
 
 const RestaurantForm = () => {
   const navigate = useNavigate();
   const { setRestaurantId } = useRestaurant();
+  const { user } = useAuth(); // ✅ Get user from AuthContext
 
   const [isLoading, setIsLoading] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -33,7 +34,7 @@ const RestaurantForm = () => {
     description: "",
     latitude: "",
     longitude: "",
-    status: "open", // ✅ Added status field
+    status: "open",
   });
 
   // ✅ Load existing restaurant
@@ -50,11 +51,9 @@ const RestaurantForm = () => {
           console.log("Restaurant data:", restaurant);
           setIsEditing(true);
 
-          // ✅ Extract latitude/longitude from location.coordinates
           const longitude = restaurant.location?.coordinates?.[0] || "";
           const latitude = restaurant.location?.coordinates?.[1] || "";
 
-          // ✅ Map backend to frontend - ALL FIELDS
           setFormData({
             restaurantName: restaurant.name || "",
             email: restaurant.email || "",
@@ -74,10 +73,9 @@ const RestaurantForm = () => {
             description: restaurant.description || "",
             latitude: latitude,
             longitude: longitude,
-            status: restaurant.status || "open", // ✅ Map status
+            status: restaurant.status || "open",
           });
 
-          // Save restaurant ID
           const restaurantId = restaurant._id || restaurant.id;
           if (restaurantId) {
             localStorage.setItem("restaurantId", restaurantId);
@@ -119,14 +117,78 @@ const RestaurantForm = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setMessage({ type: null, text: null });
+
+    // ✅ Validate authentication
+    if (!user) {
+      setMessage({
+        type: "error",
+        text: "You must be logged in to create a restaurant. Redirecting to login...",
+      });
+      setTimeout(() => navigate("/login"), 2000);
+      return;
+    }
+
+    // ✅ Get owner ID from user context
+    const ownerId = user._id || user.id;
+
+    if (!ownerId) {
+      setMessage({
+        type: "error",
+        text: "User ID not found. Please log in again.",
+      });
+      setTimeout(() => navigate("/login"), 2000);
+      return;
+    }
+
+    console.log("👤 Owner ID:", ownerId);
+    console.log("👤 User object:", user);
+
+    // ✅ Client-side validation
+    if (!formData.restaurantName || !formData.email || !formData.phone) {
+      setMessage({
+        type: "error",
+        text: "Please fill in all required fields (Restaurant Name, Email, Phone)",
+      });
+      return;
+    }
+
+    if (
+      !formData.address.street ||
+      !formData.address.city ||
+      !formData.address.state
+    ) {
+      setMessage({
+        type: "error",
+        text: "Please provide complete address information",
+      });
+      return;
+    }
+
+    if (formData.latitude && isNaN(parseFloat(formData.latitude))) {
+      setMessage({
+        type: "error",
+        text: "Latitude must be a valid number",
+      });
+      return;
+    }
+
+    if (formData.longitude && isNaN(parseFloat(formData.longitude))) {
+      setMessage({
+        type: "error",
+        text: "Longitude must be a valid number",
+      });
+      return;
+    }
+
     setIsLoading(true);
 
     try {
-      // ✅ Map frontend to backend - ALL FIELDS
+      // ✅ Map frontend to backend - INCLUDING owner_id
       const restaurantData = {
         name: formData.restaurantName,
         email: formData.email,
         phone: formData.phone,
+        owner_id: ownerId, // ✅ ADD OWNER ID
         address: {
           street: formData.address.street,
           city: formData.address.city,
@@ -149,10 +211,25 @@ const RestaurantForm = () => {
             parseFloat(formData.latitude) || 0,
           ],
         },
-        status: formData.status, // ✅ Add status to backend data
+        status: formData.status,
       };
 
       console.log("📤 Sending to backend:", restaurantData);
+
+      // ✅ Validation check before sending
+      console.log("🔍 Data validation:");
+      console.log("  - Name:", restaurantData.name ? "✓" : "✗");
+      console.log("  - Email:", restaurantData.email ? "✓" : "✗");
+      console.log("  - Phone:", restaurantData.phone ? "✓" : "✗");
+      console.log("  - Owner ID:", restaurantData.owner_id ? "✓" : "✗");
+      console.log(
+        "  - Address complete:",
+        restaurantData.address.street &&
+          restaurantData.address.city &&
+          restaurantData.address.state
+          ? "✓"
+          : "✗"
+      );
 
       let result;
 
@@ -176,11 +253,11 @@ const RestaurantForm = () => {
         result = await createRestaurantProfile(restaurantData);
         console.log("✅ Created successfully:", result);
 
-        const restaurant = result?.restaurant;
+        const restaurant = result?.restaurant || result?.data?.restaurant;
         const restaurantId = restaurant?._id || restaurant?.id;
 
         if (!restaurantId) {
-          throw new Error("Restaurant ID not found");
+          throw new Error("Restaurant ID not found in response");
         }
 
         console.log("💾 Saving restaurant ID:", restaurantId);
@@ -241,13 +318,29 @@ const RestaurantForm = () => {
       }
     } catch (error) {
       console.error("❌ Error:", error);
-      console.error("Error details:", error.response?.data);
+      console.error("❌ Full error object:", JSON.stringify(error, null, 2));
+      console.error("❌ Error response:", error.response);
 
-      const errorMsg =
-        error?.response?.data?.message ||
-        error?.message ||
-        `Failed to ${isEditing ? "update" : "create"} restaurant`;
+      let errorMsg = `Failed to ${isEditing ? "update" : "create"} restaurant`;
 
+      // ✅ Handle backend validation errors (errors array)
+      if (
+        error?.response?.data?.errors &&
+        Array.isArray(error.response.data.errors)
+      ) {
+        errorMsg =
+          "Validation failed:\n" + error.response.data.errors.join("\n");
+      }
+      // ✅ Handle backend message
+      else if (error?.response?.data?.message) {
+        errorMsg = error.response.data.message;
+      }
+      // ✅ Handle standard error
+      else if (error?.message) {
+        errorMsg = error.message;
+      }
+
+      console.error("📋 Final error message:", errorMsg);
       setMessage({ type: "error", text: errorMsg });
     } finally {
       setIsLoading(false);
@@ -260,10 +353,18 @@ const RestaurantForm = () => {
         {isEditing ? "Update Restaurant Profile" : "Create Restaurant Profile"}
       </h2>
 
+      {/* ✅ Show user info for debugging */}
+      {process.env.NODE_ENV === "development" && user && (
+        <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded text-sm">
+          <strong>Debug Info:</strong> Logged in as {user.email} (ID:{" "}
+          {user._id || user.id})
+        </div>
+      )}
+
       {/* Message Display */}
       {message.text && (
         <div
-          className={`mb-4 p-4 rounded-md ${
+          className={`mb-4 p-4 rounded-md whitespace-pre-line ${
             message.type === "error"
               ? "bg-red-50 text-red-700 border border-red-200"
               : "bg-green-50 text-green-700 border border-green-200"
@@ -273,7 +374,10 @@ const RestaurantForm = () => {
         </div>
       )}
 
+      {/* Rest of your form remains the same... */}
       <form onSubmit={handleSubmit} className="space-y-6">
+        {/* ... all your existing form fields ... */}
+
         {/* Basic Information */}
         <div className="bg-white p-6 rounded-lg shadow">
           <h3 className="text-lg font-semibold mb-4">Basic Information</h3>
@@ -343,7 +447,6 @@ const RestaurantForm = () => {
               />
             </div>
 
-            {/* ✅ Status Field */}
             <div>
               <label className="block text-sm font-medium mb-2">Status *</label>
               <select

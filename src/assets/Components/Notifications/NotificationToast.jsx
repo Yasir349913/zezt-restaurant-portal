@@ -1,8 +1,9 @@
+// src/assets/Components/Notifications/NotificationToast.jsx
 import { useEffect, useState } from "react";
-import { useNotifications } from "../../../context/NotificationContext";
+import { useSocket } from "../../../context/SocketContext"; // ✅ Changed from useNotifications
 
 export default function NotificationToast() {
-  const { notifications } = useNotifications();
+  const { notifications } = useSocket(); // ✅ Use SocketContext
   const [visibleToasts, setVisibleToasts] = useState([]);
 
   useEffect(() => {
@@ -13,14 +14,11 @@ export default function NotificationToast() {
       if (!latestNotification.isRead) {
         const toastId = latestNotification._id;
 
-        // Add to visible toasts
         setVisibleToasts((prev) => {
-          // Avoid duplicates
           if (prev.find((t) => t._id === toastId)) return prev;
-          return [latestNotification, ...prev].slice(0, 3); // Max 3 toasts
+          return [latestNotification, ...prev].slice(0, 3);
         });
 
-        // Auto-remove after 5 seconds
         setTimeout(() => {
           setVisibleToasts((prev) => prev.filter((t) => t._id !== toastId));
         }, 5000);
@@ -50,7 +48,7 @@ export default function NotificationToast() {
             </div>
             <button
               onClick={() => removeToast(toast._id)}
-              className="ml-4 flex-shrink-0 text-gray-400 hover:text-gray-500 focus:outline-none"
+              className="ml-4 flex-shrink-0 text-gray-400 hover:text-gray-500"
             >
               <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                 <path
