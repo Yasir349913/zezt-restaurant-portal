@@ -56,11 +56,7 @@ const Analyticscards = ({ onTabChange }) => {
     load();
   }, [restaurantId]);
 
-  const navigationTabs = [
-    "Deal Performance",
-    "Aura Insights",
-    "Customer Insights",
-  ];
+  const navigationTabs = ["Deal Performance", "Customer Insights"];
 
   const handleTabClick = (tab) => {
     setActiveTab(tab);

@@ -354,12 +354,6 @@ const RestaurantForm = () => {
       </h2>
 
       {/* ✅ Show user info for debugging */}
-      {process.env.NODE_ENV === "development" && user && (
-        <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded text-sm">
-          <strong>Debug Info:</strong> Logged in as {user.email} (ID:{" "}
-          {user._id || user.id})
-        </div>
-      )}
 
       {/* Message Display */}
       {message.text && (

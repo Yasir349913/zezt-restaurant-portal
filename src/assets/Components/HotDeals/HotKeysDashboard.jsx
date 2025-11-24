@@ -555,7 +555,7 @@ const TemplateManagement = () => {
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Price ($) *
+                      Price (£) *
                     </label>
                     <input
                       type="number"
@@ -591,7 +591,7 @@ const TemplateManagement = () => {
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Discount (%)
+                      Discount (£)
                     </label>
                     <input
                       type="number"

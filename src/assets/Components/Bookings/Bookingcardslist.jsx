@@ -10,9 +10,6 @@ const Bookingcardslist = ({ name, number, percentage }) => {
         <span className="text-sm md:text-base text-gray-600 font-medium">
           {name}
         </span>
-        <span className="text-xs md:text-sm text-green-500 font-medium">
-          +{percentage}%
-        </span>
       </div>
 
       {/* Main number */}
@@ -23,11 +20,7 @@ const Bookingcardslist = ({ name, number, percentage }) => {
       </div>
 
       {/* Bottom text */}
-      <div>
-        <span className="text-xs md:text-sm text-gray-400">
-          +{percentage}% in the last 1 month
-        </span>
-      </div>
+      <div></div>
     </div>
   );
 };
@@ -46,12 +39,7 @@ const Bookingcards = () => {
     <div className="space-y-6">
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5 md:gap-[21px]">
         {bookings.map((item, index) => (
-          <Bookingcardslist
-            key={index}
-            name={item.name}
-            number={item.number}
-            percentage={item.percentage}
-          />
+          <Bookingcardslist key={index} name={item.name} number={item.number} />
         ))}
       </div>
     </div>

@@ -1,8 +1,6 @@
 // src/App.jsx
 import React from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-// ❌ Remove this import
-// import { NotificationProvider } from "./context/NotificationContext";
 import NotificationToast from "./assets/Components/Notifications/NotificationToast";
 
 import Login from "./assets/Pages/Login";
@@ -21,21 +19,45 @@ import RevenueLayout from "./assets/Components/Layout/Revenuelayout";
 import Occupancylayout from "./assets/Components/Layout/Occupancylayout";
 import Notificationslayout from "./assets/Components/Layout/Notificationlayout";
 import HotDealsLayout from "./assets/Components/Layout/Hotdealslayout";
+import StripeCallback from "./assets/Components/Stripe/StripeCallback";
+import StripeRefresh from "./assets/Components/Stripe/StripeRefresh";
 import { SocketProvider } from "./context/SocketContext";
+
+// ✅ Protected Route Component
+const ProtectedRoute = ({ children }) => {
+  const token = localStorage.getItem("token");
+  const user = localStorage.getItem("user");
+
+  if (!token || !user) {
+    return <Navigate to="/login" replace />;
+  }
+
+  return children;
+};
 
 export default function App() {
   return (
     <SocketProvider>
       <BrowserRouter>
-        {/* ❌ Removed NotificationProvider */}
         <Routes>
+          {/* Public Routes */}
           <Route path="/login" element={<Login />} />
           <Route
             path="/subscription/complete"
             element={<SubscriptionSuccessPage />}
           />
+          <Route path="/stripe/callback" element={<StripeCallback />} />
+          <Route path="/stripe/refresh" element={<StripeRefresh />} />
+          <Route path="/stripe/success" element={<StripeSuccessPage />} />
 
-          <Route element={<DashLayout />}>
+          {/* Protected Routes */}
+          <Route
+            element={
+              <ProtectedRoute>
+                <DashLayout />
+              </ProtectedRoute>
+            }
+          >
             <Route path="/dashboard" element={<Dashboardlayout />} />
             <Route path="/deals" element={<Dealslayout />} />
             <Route path="/hot-deals" element={<HotDealsLayout />} />
@@ -52,9 +74,30 @@ export default function App() {
             </Route>
           </Route>
 
-          <Route path="*" element={<Navigate to="/login" replace />} />
+          {/* Default route - redirect based on auth status */}
+          <Route
+            path="/"
+            element={
+              localStorage.getItem("token") ? (
+                <Navigate to="/dashboard" replace />
+              ) : (
+                <Navigate to="/login" replace />
+              )
+            }
+          />
+
+          {/* Catch all - redirect based on auth status */}
+          <Route
+            path="*"
+            element={
+              localStorage.getItem("token") ? (
+                <Navigate to="/dashboard" replace />
+              ) : (
+                <Navigate to="/login" replace />
+              )
+            }
+          />
         </Routes>
-        {/* ✅ Toast will now use SocketContext */}
         <NotificationToast />
       </BrowserRouter>
     </SocketProvider>

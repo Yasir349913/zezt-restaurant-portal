@@ -1,5 +1,5 @@
 // src/api/services/Stripeservices.js
-const API_BASE_URL = "http://localhost:5000/api/restaurant/stripe";
+const API_BASE_URL = `${import.meta.env.VITE_API_BASE_URL}/restaurant/stripe`;
 
 // Internal restaurant ID storage (synced from context)
 let currentRestaurantId = null;
@@ -16,11 +16,9 @@ const getAuthHeaders = () => {
 // Handle API errors
 const handleResponse = async (response) => {
   const data = await response.json();
-
   if (!response.ok) {
     throw new Error(data.message || "Something went wrong");
   }
-
   return data;
 };
 
@@ -45,7 +43,6 @@ const getRestaurantId = () => {
 };
 
 // ==================== STRIPE API SERVICES ====================
-
 const StripeService = {
   // Set restaurant ID (for external use)
   setRestaurantId: (id) => {
@@ -56,10 +53,7 @@ const StripeService = {
   initiateOnboarding: async () => {
     try {
       const restaurantId = getRestaurantId();
-
-      if (!restaurantId) {
-        throw new Error("Restaurant ID not found");
-      }
+      if (!restaurantId) throw new Error("Restaurant ID not found");
 
       console.log("🚀 Initiating onboarding for restaurant:", restaurantId);
 
@@ -76,27 +70,47 @@ const StripeService = {
     }
   },
 
-  // 2. Check Stripe Account Status
+  // 2. Verify Stripe Onboarding Completion (NEW)
+  verifyOnboarding: async () => {
+    try {
+      const restaurantId = getRestaurantId();
+      if (!restaurantId) throw new Error("Restaurant ID not found");
+
+      console.log(
+        "🔍 Verifying Stripe onboarding for restaurant:",
+        restaurantId
+      );
+
+      const response = await fetch(`${API_BASE_URL}/verify-onboarding`, {
+        method: "POST",
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ restaurantId }),
+      });
+
+      const data = await handleResponse(response);
+      console.log("✅ Onboarding verification response:", data);
+      return data;
+    } catch (error) {
+      console.error("❌ Verify onboarding error:", error);
+      throw error;
+    }
+  },
+
+  // 3. Check Stripe Account Status
   checkStatus: async () => {
     try {
       const restaurantId = getRestaurantId();
-
-      if (!restaurantId) {
-        throw new Error("Restaurant ID not found");
-      }
+      if (!restaurantId) throw new Error("Restaurant ID not found");
 
       console.log("🔍 Checking Stripe status for restaurant:", restaurantId);
 
-      // ✅ Backend expects restaurantId in URL params
       const response = await fetch(`${API_BASE_URL}/status/${restaurantId}`, {
         method: "GET",
         headers: getAuthHeaders(),
       });
 
       const data = await handleResponse(response);
-
       console.log("📊 Stripe Status Response:", data);
-
       return data;
     } catch (error) {
       console.error("❌ Status check error:", error);
@@ -104,22 +118,16 @@ const StripeService = {
     }
   },
 
-  // 3. Get Restaurant Data with Stripe Info
+  // 4. Get Restaurant Data with Stripe Info
   getRestaurantData: async () => {
     try {
       const restaurantId = getRestaurantId();
+      if (!restaurantId) throw new Error("Restaurant ID not found");
 
-      if (!restaurantId) {
-        throw new Error("Restaurant ID not found");
-      }
-
-      const response = await fetch(
-        `http://localhost:5000/api/restaurant/stripe/`,
-        {
-          method: "GET",
-          headers: getAuthHeaders(),
-        }
-      );
+      const response = await fetch(`${API_BASE_URL}`, {
+        method: "GET",
+        headers: getAuthHeaders(),
+      });
 
       return await handleResponse(response);
     } catch (error) {
@@ -128,14 +136,11 @@ const StripeService = {
     }
   },
 
-  // 4. Create Subscription
+  // 5. Create Subscription
   createSubscription: async () => {
     try {
       const restaurantId = getRestaurantId();
-
-      if (!restaurantId) {
-        throw new Error("Restaurant ID not found");
-      }
+      if (!restaurantId) throw new Error("Restaurant ID not found");
 
       const response = await fetch(`${API_BASE_URL}/create-subscription`, {
         method: "POST",
@@ -150,14 +155,11 @@ const StripeService = {
     }
   },
 
-  // 5. Cancel Subscription
+  // 6. Cancel Subscription
   cancelSubscription: async () => {
     try {
       const restaurantId = getRestaurantId();
-
-      if (!restaurantId) {
-        throw new Error("Restaurant ID not found");
-      }
+      if (!restaurantId) throw new Error("Restaurant ID not found");
 
       const response = await fetch(`${API_BASE_URL}/cancel-subscription`, {
         method: "POST",
@@ -172,14 +174,11 @@ const StripeService = {
     }
   },
 
-  // 6. Get Payment History
+  // 7. Get Payment History
   getPaymentHistory: async () => {
     try {
       const restaurantId = getRestaurantId();
-
-      if (!restaurantId) {
-        throw new Error("Restaurant ID not found");
-      }
+      if (!restaurantId) throw new Error("Restaurant ID not found");
 
       const response = await fetch(
         `${API_BASE_URL}/payment-history/${restaurantId}`,

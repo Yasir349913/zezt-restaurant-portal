@@ -72,7 +72,7 @@ const SubscriptionSuccessPage = () => {
             </div>
             <div className="flex justify-between">
               <span className="font-medium">Monthly Fee:</span>
-              <span className="font-bold">PKR 10,000</span>
+              <span className="font-bold">£100</span>
             </div>
             <div className="flex justify-between">
               <span className="font-medium">Next Payment:</span>

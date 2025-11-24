@@ -1,7 +1,7 @@
 // src/api/api.js
 import axios from "axios";
 
-const BASE_URL = "http://localhost:5000/api";
+const BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 export const http = axios.create({
   baseURL: BASE_URL,
@@ -53,7 +53,6 @@ const setupInterceptor = (instance) => {
     async (error) => {
       const originalRequest = error.config;
 
-      // 🐛 DETAILED DEBUG LOG
       console.group("🔍 INTERCEPTOR TRIGGERED");
       console.log("Error Status:", error.response?.status);
       console.log("Error Data:", error.response?.data);
@@ -61,14 +60,20 @@ const setupInterceptor = (instance) => {
       console.log("Already Retried?", originalRequest?._retry);
       console.groupEnd();
 
-      // Check if token expired
-      const isTokenExpired =
-        error.response?.status === 401 &&
-        (error.response?.data?.code === "TOKEN_EXPIRED" ||
-          error.response?.data?.message?.toLowerCase().includes("expired") ||
-          error.response?.data?.error?.toLowerCase().includes("expired"));
+      // Skip refresh for auth endpoints
+      if (
+        originalRequest?.url?.includes("/authenticate") ||
+        originalRequest?.url?.includes("/refresh") ||
+        originalRequest?.url?.includes("/forgot-password") ||
+        originalRequest?.url?.includes("/reset-password")
+      ) {
+        return Promise.reject(error);
+      }
 
-      console.log("🔍 Is Token Expired?", isTokenExpired);
+      // Check if token expired - check for 401 status
+      const isTokenExpired = error.response?.status === 401;
+
+      console.log("🔍 Is Token Expired (401)?", isTokenExpired);
 
       if (isTokenExpired && !originalRequest._retry) {
         console.log("🔄 TOKEN EXPIRED - Starting refresh flow");
@@ -95,20 +100,37 @@ const setupInterceptor = (instance) => {
         isRefreshing = true;
 
         try {
-          console.log(
-            "🔄 Calling refresh endpoint:",
-            `${BASE_URL}/auth/refresh`
-          );
+          console.log("🔄 Calling refresh endpoint");
 
-          // Check if we have the cookie
-          console.log("🍪 Document cookies:", document.cookie);
+          // Get user role from localStorage to determine if we need to send refresh token in body
+          const user = JSON.parse(localStorage.getItem("user") || "{}");
+          const isCustomer = user.role === "customer";
 
+          let refreshRequestBody = {};
+
+          // For customers, try to get refresh token from localStorage
+          if (isCustomer) {
+            const refreshToken = localStorage.getItem("refreshToken");
+            if (refreshToken) {
+              refreshRequestBody = { refreshToken };
+              console.log("📱 Customer: Sending refresh token in body");
+            }
+          } else {
+            console.log(
+              "🖥️ Restaurant Owner: Cookie will be sent automatically"
+            );
+          }
+
+          // Call the refresh endpoint
           const refreshResponse = await axios.post(
             `${BASE_URL}/user/refresh`,
-            {},
+            refreshRequestBody, // Empty for restaurant owners, contains token for customers
             {
-              withCredentials: true,
+              withCredentials: true, // This ensures cookies are sent
               timeout: 10000,
+              headers: {
+                "Content-Type": "application/json",
+              },
             }
           );
 
@@ -152,10 +174,13 @@ const setupInterceptor = (instance) => {
           processQueue(refreshError, null);
           isRefreshing = false;
 
-          // Check if it's a token issue or network issue
+          // Check if it's an auth error
           const isAuthError =
             refreshError.response?.status === 401 ||
-            refreshError.response?.status === 403;
+            refreshError.response?.status === 403 ||
+            refreshError.response?.data?.code === "REFRESH_TOKEN_MISSING" ||
+            refreshError.response?.data?.code === "REFRESH_TOKEN_EXPIRED" ||
+            refreshError.response?.data?.code === "INVALID_REFRESH_TOKEN";
 
           if (isAuthError) {
             console.log("🚪 Authentication error - logging out");
@@ -163,6 +188,7 @@ const setupInterceptor = (instance) => {
             // Clear everything
             localStorage.removeItem("token");
             localStorage.removeItem("user");
+            localStorage.removeItem("refreshToken"); // Also clear refresh token for customers
 
             [http, userApi, authApi, verify].forEach((inst) => {
               delete inst.defaults.headers.common["Authorization"];
@@ -172,6 +198,9 @@ const setupInterceptor = (instance) => {
             // Dispatch logout event
             console.log("📡 Dispatching 'token-expired' event");
             window.dispatchEvent(new Event("token-expired"));
+
+            // Redirect to login
+            window.location.href = "/login";
           } else {
             console.warn(
               "⚠️ Network or server error during refresh - NOT logging out"
@@ -193,5 +222,15 @@ setupInterceptor(http);
 setupInterceptor(userApi);
 setupInterceptor(authApi);
 setupInterceptor(verify);
+
+// Initialize auth from storage on app load
+const token = localStorage.getItem("token");
+if (token) {
+  const bearer = `Bearer ${token}`;
+  [http, userApi, authApi, verify].forEach((inst) => {
+    inst.defaults.headers.common["Authorization"] = bearer;
+    inst.defaults.headers.common["x-auth-token"] = token;
+  });
+}
 
 console.log("✅ Axios interceptors configured");

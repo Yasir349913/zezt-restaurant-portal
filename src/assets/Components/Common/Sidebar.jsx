@@ -25,7 +25,7 @@ const navItems = [
   { path: "/deals", label: "Deals", icon: BookOpen },
   { path: "/hot-deals", label: "Hot Deals", icon: Zap }, // NEW
   { path: "/bookings", label: "Bookings", icon: ClipboardList },
-  { path: "/aura-suggestions", label: "Aura Suggestions", icon: CalendarDays },
+
   { path: "/analytics", label: "Analytics", icon: FileText },
   { path: "/revenue", label: "Revenue", icon: CheckSquare },
   { path: "/payments", label: "Payments", icon: CreditCard },

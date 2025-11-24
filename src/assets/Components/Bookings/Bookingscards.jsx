@@ -5,33 +5,15 @@ const BookingCard = ({ name, number, percentage }) => (
       <span className="text-sm md:text-base text-gray-600 font-medium">
         {name}
       </span>
-      {percentage !== undefined && (
-        <span
-          className={`text-xs md:text-sm font-medium ${
-            percentage >= 0 ? "text-green-500" : "text-red-500"
-          }`}
-        >
-          {percentage >= 0 ? "+" : ""}
-          {percentage}%
-        </span>
-      )}
     </div>
     <div className="flex-1 flex items-center mb-2">
       <span className="text-2xl md:text-3xl font-semibold text-gray-900">
         {number}
       </span>
     </div>
-    {percentage !== undefined && (
-      <div>
-        <span className="text-xs md:text-sm text-gray-400">
-          {percentage >= 0 ? "+" : ""}
-          {percentage}% from last period
-        </span>
-      </div>
-    )}
+    {percentage !== undefined && <div></div>}
   </div>
 );
-
 
 const Bookingcards = ({ stats }) => {
   // Loading state

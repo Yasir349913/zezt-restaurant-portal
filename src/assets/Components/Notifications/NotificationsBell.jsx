@@ -22,19 +22,31 @@ const NotificationBell = () => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const handleNotificationClick = (notification) => {
+  // ✅ UPDATED: Fixed navigation logic
+  const handleNotificationClick = async (notification) => {
+    // Mark as read first
     if (!notification.isRead) {
-      markAsRead(notification._id);
+      try {
+        await markAsRead(notification._id);
+        console.log("✅ Marked as read:", notification._id);
+      } catch (error) {
+        console.error("❌ Failed to mark as read:", error);
+      }
     }
 
-    // Handle navigation based on notification type
-    if (notification.actionData?.bookingId) {
-      navigate(`/bookings/${notification.actionData.bookingId}`);
-    } else if (notification.actionData?.restaurantId) {
-      navigate(`/admin/restaurants/${notification.actionData.restaurantId}`);
-    }
-
+    // Close dropdown
     setIsOpen(false);
+
+    // ✅ Navigate to notifications page instead of non-existent routes
+    // This prevents redirect to login when routes don't exist
+    navigate("/notifications");
+
+    // ❌ OLD CODE (was causing redirect to login):
+    // if (notification.actionData?.bookingId) {
+    //   navigate(`/bookings/${notification.actionData.bookingId}`);
+    // } else if (notification.actionData?.restaurantId) {
+    //   navigate(`/admin/restaurants/${notification.actionData.restaurantId}`);
+    // }
   };
 
   const formatTime = (dateString) => {

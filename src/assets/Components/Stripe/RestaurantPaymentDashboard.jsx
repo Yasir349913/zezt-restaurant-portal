@@ -15,12 +15,13 @@ import {
 
 // =============== MAIN DASHBOARD ===============
 const RestaurantPaymentDashboard = () => {
-  const { restaurantId } = useRestaurant(); // ✅ Get from context
+  const { restaurantId } = useRestaurant();
   const [restaurantData, setRestaurantData] = useState(null);
   const [stripeStatus, setStripeStatus] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState("overview");
+  const [hasActiveSubscription, setHasActiveSubscription] = useState(false);
 
   useEffect(() => {
     if (restaurantId) {
@@ -29,16 +30,32 @@ const RestaurantPaymentDashboard = () => {
     }
   }, [restaurantId]);
 
-  // ✅ Using StripeService
+  // ✅ Fetch restaurant data and check subscription
   const fetchRestaurantData = async () => {
     try {
       setLoading(true);
       const data = await StripeService.getRestaurantData();
-      setRestaurantData(data.data || data);
+      const restaurant = data.data || data;
+
+      console.log("🔍 Restaurant Data:", restaurant);
+      console.log("🔍 Subscription ID:", restaurant.stripeSubscriptionId);
+      console.log("🔍 Payment Status:", restaurant.paymentStatus);
+
+      setRestaurantData(restaurant);
+
+      // ✅ Check multiple conditions for active subscription
+      const hasSubscription = !!(
+        restaurant.stripeSubscriptionId ||
+        restaurant.paymentStatus === "active" ||
+        restaurant.paymentStatus === "current"
+      );
+
+      console.log("✅ Has Active Subscription:", hasSubscription);
+      setHasActiveSubscription(hasSubscription);
     } catch (error) {
       console.error("Error fetching restaurant data:", error);
       setError(error.message);
-      // Fallback mock data for testing
+      // Fallback mock data
       setRestaurantData({
         name: "Sample Restaurant",
         plan: "trial",
@@ -52,12 +69,13 @@ const RestaurantPaymentDashboard = () => {
         stripeSubscriptionId: null,
         nextPaymentDue: null,
       });
+      setHasActiveSubscription(false);
     } finally {
       setLoading(false);
     }
   };
 
-  // ✅ Using StripeService
+  // ✅ Check Stripe status
   const checkStripeStatus = async () => {
     try {
       const data = await StripeService.checkStatus();
@@ -72,14 +90,13 @@ const RestaurantPaymentDashboard = () => {
     }
   };
 
-  // ✅ Using StripeService
+  // ✅ Stripe onboarding
   const handleStripeOnboarding = async () => {
     try {
       setLoading(true);
       const data = await StripeService.initiateOnboarding();
 
       if (data.success && data.url) {
-        // Redirect to Stripe onboarding
         window.location.href = data.url;
       } else {
         alert("Failed to create onboarding link");
@@ -92,14 +109,13 @@ const RestaurantPaymentDashboard = () => {
     }
   };
 
-  // ✅ UPDATED: Using StripeService with redirect
+  // ✅ Create subscription
   const handleCreateSubscription = async () => {
     try {
       setLoading(true);
       const data = await StripeService.createSubscription();
 
       if (data.success && data.url) {
-        // ✅ Redirect to Stripe Checkout
         window.location.href = data.url;
       } else {
         alert("Failed to create subscription");
@@ -110,7 +126,6 @@ const RestaurantPaymentDashboard = () => {
       alert(error.message || "Error creating subscription");
       setLoading(false);
     }
-    // Note: No finally block needed - redirect will leave the page
   };
 
   const getStatusColor = (status) => {
@@ -134,7 +149,6 @@ const RestaurantPaymentDashboard = () => {
     );
   }
 
-  // ✅ Show error if no restaurantId
   if (!restaurantId) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -153,7 +167,7 @@ const RestaurantPaymentDashboard = () => {
 
   return (
     <div className="max-w-7xl mx-auto p-6 space-y-6">
-      {/* Stripe Account Setup Alert */}
+      {/* ✅ Stripe Account Setup Alert - Only if Stripe NOT connected */}
       {!stripeStatus?.accountActive && (
         <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4">
           <div className="flex items-start">
@@ -177,8 +191,8 @@ const RestaurantPaymentDashboard = () => {
         </div>
       )}
 
-      {/* Subscription Alert */}
-      {stripeStatus?.accountActive && !restaurantData?.stripeSubscriptionId && (
+      {/* ✅ Subscription Alert - Only if Stripe connected BUT no subscription */}
+      {stripeStatus?.accountActive && !hasActiveSubscription && (
         <div className="bg-blue-50 border-l-4 border-blue-400 p-4">
           <div className="flex items-start">
             <CreditCard className="h-5 w-5 text-blue-400 mt-0.5 flex-shrink-0" />
@@ -194,8 +208,25 @@ const RestaurantPaymentDashboard = () => {
                 onClick={handleCreateSubscription}
                 className="mt-3 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors text-sm font-medium"
               >
-                Activate Subscription (PKR 10,000/month)
+                Activate Subscription (£100)
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ✅ Active Subscription Confirmation */}
+      {hasActiveSubscription && (
+        <div className="bg-green-50 border-l-4 border-green-400 p-4">
+          <div className="flex items-start">
+            <CheckCircle className="h-5 w-5 text-green-400 mt-0.5 flex-shrink-0" />
+            <div className="ml-3 flex-1">
+              <h3 className="text-sm font-medium text-green-800">
+                Subscription Active
+              </h3>
+              <p className="mt-1 text-sm text-green-700">
+                Your subscription is active and you're ready to accept bookings!
+              </p>
             </div>
           </div>
         </div>
@@ -296,8 +327,7 @@ const RestaurantPaymentDashboard = () => {
                   <div>
                     <p className="text-sm text-gray-600">Revenue</p>
                     <p className="text-xl font-semibold">
-                      PKR{" "}
-                      {(restaurantData.monthlyRevenue || 0).toLocaleString()}
+                      £ {(restaurantData.monthlyRevenue || 0).toLocaleString()}
                     </p>
                   </div>
                   <div>
@@ -305,7 +335,7 @@ const RestaurantPaymentDashboard = () => {
                       Commission ({restaurantData.commissionRate}%)
                     </p>
                     <p className="text-xl font-semibold">
-                      PKR{" "}
+                      £{" "}
                       {(
                         (restaurantData.monthlyRevenue || 0) * 0.1
                       ).toLocaleString()}
@@ -314,7 +344,7 @@ const RestaurantPaymentDashboard = () => {
                   <div>
                     <p className="text-sm text-gray-600">Net Earnings</p>
                     <p className="text-xl font-semibold">
-                      PKR{" "}
+                      £{" "}
                       {(
                         (restaurantData.monthlyRevenue || 0) * 0.9
                       ).toLocaleString()}
@@ -322,39 +352,6 @@ const RestaurantPaymentDashboard = () => {
                   </div>
                 </div>
               </div>
-
-              {/* Stripe Status Details */}
-              {stripeStatus?.accountActive && (
-                <div className="bg-green-50 p-4 rounded-lg">
-                  <h3 className="font-semibold text-green-900 mb-2">
-                    Stripe Account Status
-                  </h3>
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <p className="text-gray-600">Account ID</p>
-                      <p className="font-mono text-xs text-gray-800">
-                        {restaurantData.stripeConnectedAccountId}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-gray-600">Capabilities</p>
-                      <div className="flex gap-2 mt-1">
-                        {stripeStatus.capabilities?.card_payments ===
-                          "active" && (
-                          <span className="bg-green-100 text-green-800 px-2 py-1 rounded text-xs">
-                            Payments ✓
-                          </span>
-                        )}
-                        {stripeStatus.capabilities?.transfers === "active" && (
-                          <span className="bg-green-100 text-green-800 px-2 py-1 rounded text-xs">
-                            Transfers ✓
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
             </div>
           )}
 
@@ -364,9 +361,7 @@ const RestaurantPaymentDashboard = () => {
               {/* Current Subscription Status */}
               <div
                 className={`${
-                  restaurantData.stripeSubscriptionId
-                    ? "bg-green-50"
-                    : "bg-gray-50"
+                  hasActiveSubscription ? "bg-green-50" : "bg-gray-50"
                 } p-6 rounded-lg`}
               >
                 <div className="flex items-start justify-between">
@@ -375,12 +370,14 @@ const RestaurantPaymentDashboard = () => {
                       Standard Plan
                     </h3>
                     <p className="text-3xl font-bold">
-                      PKR 10,000
+                      £100
                       <span className="text-lg font-normal text-gray-600">
                         /month
                       </span>
                     </p>
-                    {restaurantData.stripeSubscriptionId ? (
+
+                    {/* ✅ Show Active Subscription Status */}
+                    {hasActiveSubscription ? (
                       <div className="mt-4 space-y-2">
                         <div className="flex items-center text-green-700">
                           <CheckCircle className="h-5 w-5 mr-2" />
@@ -398,6 +395,7 @@ const RestaurantPaymentDashboard = () => {
                         )}
                       </div>
                     ) : (
+                      /* ✅ Show Activate Button Only if No Subscription */
                       <div className="mt-4">
                         <p className="text-gray-600 mb-3">
                           Start accepting bookings with our standard plan
@@ -502,7 +500,7 @@ const RestaurantPaymentDashboard = () => {
                             {payment.type}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                            PKR {payment.amount.toLocaleString()}
+                            £ {payment.amount.toLocaleString()}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <span

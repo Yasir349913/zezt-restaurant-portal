@@ -3,10 +3,9 @@ import Dealscardlists from "./Dealscardlists";
 import { getDealDashboardData } from "../../../api/services/Dealsservice";
 import { useRestaurant } from "../../../context/RestaurantContext";
 
-const Dealscards = ({ onTabChange, refreshTrigger }) => {
+const Dealscards = ({ refreshTrigger }) => {
   const { restaurantId } = useRestaurant();
   const [dealsData, setDealsData] = useState([]);
-  const [activeTab, setActiveTab] = useState("List View");
   const [loading, setLoading] = useState(true);
 
   const fetchDashboardData = () => {
@@ -25,7 +24,7 @@ const Dealscards = ({ onTabChange, refreshTrigger }) => {
         // Match backend response: activeDealsCount, totalRedemptions, totalRevenue, avgRedemptionRate
         const cardsArray = [
           {
-            name: "Active Deals",
+            name: "Current Month Deals",
             number: data.activeDealsCount || 0,
             percentage: 0,
           },
@@ -74,13 +73,6 @@ const Dealscards = ({ onTabChange, refreshTrigger }) => {
     fetchDashboardData();
   }, [restaurantId, refreshTrigger]);
 
-  const navigationTabs = ["List View", "Calendar View"];
-
-  const handleTabClick = (tab) => {
-    setActiveTab(tab);
-    if (onTabChange) onTabChange(tab);
-  };
-
   if (loading) {
     return (
       <div className="text-center text-gray-500 py-8">
@@ -91,7 +83,7 @@ const Dealscards = ({ onTabChange, refreshTrigger }) => {
 
   return (
     <div className="space-y-6 w-full">
-      {/* Deals Cards */}
+      {/* Deals Cards Only */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-[21px]">
         {dealsData.map((item, index) => (
           <Dealscardlists
@@ -101,25 +93,6 @@ const Dealscards = ({ onTabChange, refreshTrigger }) => {
             percentage={item.percentage}
           />
         ))}
-      </div>
-
-      {/* Navigation Tabs */}
-      <div className="w-full max-w-md mx-auto">
-        <div className="flex flex-wrap sm:flex-nowrap bg-white border border-gray-300 rounded-md p-1 gap-2">
-          {navigationTabs.map((tab) => (
-            <span
-              key={tab}
-              onClick={() => handleTabClick(tab)}
-              className={`flex-1 text-center text-sm font-medium rounded cursor-pointer px-3 py-2 transition-colors ${
-                activeTab === tab
-                  ? "bg-gray-100 text-gray-900"
-                  : "text-gray-700 hover:bg-gray-50"
-              }`}
-            >
-              {tab}
-            </span>
-          ))}
-        </div>
       </div>
     </div>
   );

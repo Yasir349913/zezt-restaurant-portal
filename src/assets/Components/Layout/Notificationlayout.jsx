@@ -28,6 +28,18 @@ export default function Notificationslayout() {
     }
   };
 
+  // ✅ NEW: Handle notification click - marks as read
+  const handleNotificationClick = async (notification) => {
+    if (!notification.isRead) {
+      try {
+        await markAsRead(notification._id);
+        console.log("✅ Marked as read:", notification._id);
+      } catch (error) {
+        console.error("❌ Failed to mark as read:", error);
+      }
+    }
+  };
+
   const filteredNotifications = notifications.filter((notification) => {
     if (filter === "unread" && notification.isRead) return false;
     if (filter === "read" && !notification.isRead) return false;
@@ -230,7 +242,8 @@ export default function Notificationslayout() {
               {paginatedNotifications.map((notification) => (
                 <div
                   key={notification._id}
-                  className={`p-4 border-b border-gray-200 last:border-b-0 hover:bg-gray-50 transition-colors ${
+                  onClick={() => handleNotificationClick(notification)} // ✅ Added click handler
+                  className={`p-4 border-b border-gray-200 last:border-b-0 hover:bg-gray-50 transition-colors cursor-pointer ${
                     !notification.isRead ? "bg-blue-50" : ""
                   }`}
                 >
@@ -279,7 +292,10 @@ export default function Notificationslayout() {
                         <div className="flex items-center gap-2">
                           {!notification.isRead && (
                             <button
-                              onClick={() => markAsRead(notification._id)}
+                              onClick={(e) => {
+                                e.stopPropagation(); // ✅ Prevent parent click
+                                markAsRead(notification._id);
+                              }}
                               className="p-2 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors"
                               title="Mark as read"
                             >

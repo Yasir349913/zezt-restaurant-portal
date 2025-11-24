@@ -1,7 +1,7 @@
 import React from "react";
 import WelcomeMessage from "../Dashboard/Welcomemessage";
 import Revenuecards from "../Dashboard/Revenuecards";
-import Suggestions from "../Dashboard/Suggestions";
+//import Suggestions from "../Dashboard/Suggestions";
 import Revenuegraphs from "../Dashboard/Revenuegraphs";
 
 export default function Dashboardlayout() {
@@ -20,7 +20,7 @@ export default function Dashboardlayout() {
         <Revenuegraphs />
 
         {/* AI Suggestions */}
-        <Suggestions />
+        {/* <Suggestions />*/}
       </div>
     </div>
   );

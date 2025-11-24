@@ -74,11 +74,12 @@ export const SocketProvider = ({ children }) => {
 
     // Initialize socket
     const BACKEND_URL =
-      import.meta.env.VITE_BACKEND_URL || "http://localhost:5000";
+      import.meta.env.VITE_SOCKET_URL || "http://localhost:5000";
 
     const newSocket = io(BACKEND_URL, {
       auth: { token },
       transports: ["websocket", "polling"],
+      withCredentials: true,
     });
 
     newSocket.on("connect", () => {

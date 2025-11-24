@@ -7,7 +7,7 @@ import CreateDealModal from "../Deals/Dealsform"; // your existing create modal
 import { Plus } from "lucide-react";
 
 export default function Dealslayout() {
-  const [activeTab, setActiveTab] = useState("List View");
+  const [activeTab, setActiveTab] = useState("List View"); // Default is List View
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
@@ -31,31 +31,21 @@ export default function Dealslayout() {
   };
 
   const renderTabContent = () => {
-    switch (activeTab) {
-      case "List View":
-        return (
-          <>
-            <DealsFilter
-              refreshTrigger={refreshTrigger}
-              onFilterApplied={handleFilterApplied}
-            />
-            <div className="bg-white rounded-lg p-6 shadow-sm">
-              <DealsTable
-                refreshTrigger={refreshTrigger}
-                filteredDeals={filteredDeals}
-              />
-            </div>
-          </>
-        );
-      case "Calendar View":
-        return (
-          <div className="bg-white rounded-lg p-6 shadow-sm">
-            <Dealscalendar />
-          </div>
-        );
-      default:
-        return null;
-    }
+    // Since we're removing tabs, always show List View content
+    return (
+      <>
+        <DealsFilter
+          refreshTrigger={refreshTrigger}
+          onFilterApplied={handleFilterApplied}
+        />
+        <div className="bg-white rounded-lg p-6 shadow-sm">
+          <DealsTable
+            refreshTrigger={refreshTrigger}
+            filteredDeals={filteredDeals}
+          />
+        </div>
+      </>
+    );
   };
 
   return (
@@ -74,12 +64,9 @@ export default function Dealslayout() {
         </div>
 
         {/* Deals Cards */}
-        <Dealscards
-          onTabChange={handleTabChange}
-          refreshTrigger={refreshTrigger}
-        />
+        <Dealscards refreshTrigger={refreshTrigger} />
 
-        {/* Tab Content */}
+        {/* Tab Content - Always shows List View */}
         {renderTabContent()}
 
         {/* Create Modal */}

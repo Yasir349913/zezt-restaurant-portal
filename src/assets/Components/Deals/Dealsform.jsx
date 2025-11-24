@@ -1,13 +1,14 @@
+// src/assets/Components/Deals/CreateDealModal.jsx
 import React, { useState, useEffect } from "react";
 import { X, Plus, Trash2 } from "lucide-react";
 import { createNewDeal } from "../../../api/services/Dealsservice";
 import { useRestaurant } from "../../../context/RestaurantContext";
 
 const CreateDealModal = ({ isOpen, onClose, onDealCreated }) => {
-  // ✅ Add onDealCreated prop
+  
   const { restaurantId } = useRestaurant();
 
-  // Form state including all required & optional fields
+  // Form state including all required & optional fields (redemption removed)
   const [formData, setFormData] = useState({
     deal_title: "",
     deal_start_date: "",
@@ -19,7 +20,6 @@ const CreateDealModal = ({ isOpen, onClose, onDealCreated }) => {
     deal_description: "",
     deal_discount: 0,
     deal_menu: [],
-    redemption: 0,
     deal_expires_in: 0,
   });
 
@@ -143,7 +143,11 @@ const CreateDealModal = ({ isOpen, onClose, onDealCreated }) => {
 
     // Validate menu items
     const validMenuItems = menuItems.filter(
-      (item) => item.item_name && item.item_price && item.item_description
+      (item) =>
+        item.item_name &&
+        item.item_price !== "" &&
+        item.item_price !== null &&
+        item.item_description
     );
 
     if (validMenuItems.length === 0) {
@@ -168,7 +172,6 @@ const CreateDealModal = ({ isOpen, onClose, onDealCreated }) => {
       deal_expires_at: formData.deal_expires_at, // UTC ISO string
       deal_expires_in: formData.deal_expires_in, // Daily duration in hours
       deal_status: formData.deal_status,
-      redemption: Number(formData.redemption),
       deal_description: formData.deal_description,
       deal_price: Number(formData.deal_price),
       deal_discount: Number(formData.deal_discount),
@@ -201,7 +204,6 @@ const CreateDealModal = ({ isOpen, onClose, onDealCreated }) => {
         deal_description: "",
         deal_discount: 0,
         deal_menu: [],
-        redemption: 0,
         deal_expires_in: 0,
       });
       setStartDateTime("");
@@ -316,21 +318,6 @@ const CreateDealModal = ({ isOpen, onClose, onDealCreated }) => {
             </select>
           </div>
 
-          {/* Redemption */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Redemption Limit *
-            </label>
-            <input
-              type="number"
-              name="redemption"
-              value={formData.redemption}
-              onChange={handleInputChange}
-              placeholder="Number of times this deal can be redeemed"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#E57272] focus:border-[#E57272]"
-            />
-          </div>
-
           {/* Price, Slot Duration & Max Capacity */}
           <div className="grid grid-cols-3 gap-4">
             <div>
@@ -371,10 +358,10 @@ const CreateDealModal = ({ isOpen, onClose, onDealCreated }) => {
             </div>
           </div>
 
-          {/* Discount */}
+          {/* Discount % */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Discount % *
+              Discount Amount *
             </label>
             <input
               type="number"

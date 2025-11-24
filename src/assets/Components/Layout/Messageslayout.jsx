@@ -19,7 +19,34 @@ import useRestaurantChat from "../Messages/useRestaurantChat";
 export default function Messageslayout() {
   const { user } = useAuth();
   const { restaurantId } = useRestaurant();
-  const userId = user?._id || user?.userId;
+
+  // ✅ FIXED: Better user ID extraction with debugging
+  console.log("🔍 AUTH DEBUG:");
+  console.log("  - Full user object:", user);
+  console.log("  - user._id:", user?._id);
+  console.log("  - user.userId:", user?.userId);
+  console.log("  - user.id:", user?.id);
+
+  // Try multiple possible user ID fields
+  const userId = user?._id || user?.userId || user?.id;
+
+  console.log("  - ✅ Final userId:", userId);
+  console.log("  - ✅ userId type:", typeof userId);
+
+  // ✅ Early return if no userId
+  if (!userId) {
+    console.error("❌ CRITICAL: No userId found! User object:", user);
+    return (
+      <div className="xl:ml-64 pt-14 bg-gray-50 h-screen flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-red-600 font-semibold mb-2">
+            Authentication Error
+          </p>
+          <p className="text-gray-600">Please log in again</p>
+        </div>
+      </div>
+    );
+  }
 
   const [conversations, setConversations] = useState([]);
   const [filteredConversations, setFilteredConversations] = useState([]);
@@ -36,33 +63,46 @@ export default function Messageslayout() {
   const { messagesData, typingUsers, sendMessage, emitTyping } =
     useRestaurantChat(userId, conversations);
 
-  //  Merge fetched messages with real-time socket messages
+  // ✅ Better message merging logic
   const currentMessages = useMemo(() => {
     const fetched = allMessages[selectedConversationId] || [];
     const socketMsgs = messagesData[selectedConversationId] || [];
 
-    console.log("🔄 Merging messages:");
-    console.log("  - Fetched:", fetched.length);
-    console.log("  - Socket:", socketMsgs.length);
+    console.log("🔄 MERGING MESSAGES for room:", selectedConversationId);
+    console.log("  - Fetched messages:", fetched.length);
+    console.log("  - Socket messages:", socketMsgs.length);
 
     // Combine both arrays
     const combined = [...fetched, ...socketMsgs];
 
-    // Remove duplicates based on message ID
-    const uniqueMessages = combined.filter(
-      (msg, index, self) => index === self.findIndex((m) => m.id === msg.id)
-    );
+    // Remove duplicates based on message ID (ignore temp IDs)
+    const uniqueMessages = combined.filter((msg, index, self) => {
+      // Skip temp IDs in duplicate check
+      if (msg.id && msg.id.toString().startsWith("temp-")) {
+        return true;
+      }
+      return (
+        index ===
+        self.findIndex((m) => {
+          // Don't compare temp IDs
+          if (m.id && m.id.toString().startsWith("temp-")) {
+            return false;
+          }
+          return m.id === msg.id;
+        })
+      );
+    });
 
-    console.log("  - Combined (unique):", uniqueMessages.length);
+    console.log("  - After deduplication:", uniqueMessages.length);
 
-    // Sort by timestamp if available
+    // Sort by timestamp
     const sorted = uniqueMessages.sort((a, b) => {
-      const timeA = new Date(a.timestamp || a.time || 0);
-      const timeB = new Date(b.timestamp || b.time || 0);
+      const timeA = new Date(a.timestamp || a.createdAt || 0);
+      const timeB = new Date(b.timestamp || b.createdAt || 0);
       return timeA - timeB;
     });
 
-    console.log("  - Final messages:", sorted.length);
+    console.log("  - Final sorted messages:", sorted.length);
     return sorted;
   }, [allMessages, messagesData, selectedConversationId]);
 
@@ -74,7 +114,13 @@ export default function Messageslayout() {
         return;
       }
 
+      if (!userId) {
+        console.error("❌ No userId, cannot load conversations");
+        return;
+      }
+
       console.log("🏪 Loading conversations for restaurant:", restaurantId);
+      console.log("👤 With userId:", userId);
       setIsInitialLoading(true);
 
       try {
@@ -97,14 +143,33 @@ export default function Messageslayout() {
           console.log("📨 Fetching messages for room:", firstConv.roomId);
           const msgs = await fetchMessages(firstConv.roomId);
 
-          console.log("📥 Raw fetched messages:", msgs);
-          console.log("👤 Current userId:", userId);
+          console.log("📥 RAW FETCHED MESSAGES:", msgs);
+          console.log("👤 Current userId for comparison:", userId);
+          console.log("👤 User ID type:", typeof userId);
 
+          // ✅ FIXED: Proper sender comparison
           const transformed = msgs.map((msg) => {
-            const isMine = msg.sender === userId;
-            console.log(
-              `  Message ${msg.id}: sender=${msg.sender}, userId=${userId}, isMine=${isMine}`
-            );
+            // Extract sender ID (handle both string and object)
+            let senderId;
+            if (typeof msg.sender === "string") {
+              senderId = msg.sender;
+            } else if (msg.sender?._id) {
+              senderId = msg.sender._id;
+            } else if (msg.sender?.id) {
+              senderId = msg.sender.id;
+            }
+
+            // ✅ Convert both to strings for comparison
+            const senderStr = String(senderId);
+            const userStr = String(userId);
+            const isMine = senderStr === userStr;
+
+            console.log(`  Message ${msg.id}:`);
+            console.log(`    - Raw sender:`, msg.sender);
+            console.log(`    - Extracted ID:`, senderId);
+            console.log(`    - Sender (string):`, senderStr);
+            console.log(`    - User (string):`, userStr);
+            console.log(`    - Is mine:`, isMine);
 
             return {
               ...msg,
@@ -112,7 +177,7 @@ export default function Messageslayout() {
             };
           });
 
-          console.log("✅ Transformed messages:", transformed);
+          console.log("✅ TRANSFORMED MESSAGES:", transformed);
 
           // ✅ Store the fetched messages
           setAllMessages((prev) => ({
@@ -154,13 +219,27 @@ export default function Messageslayout() {
         console.log("📨 Fetching messages for room:", roomId);
         const msgs = await fetchMessages(roomId);
 
-        console.log("📥 Raw fetched messages:", msgs);
+        console.log("📥 RAW FETCHED MESSAGES:", msgs);
         console.log("👤 Current userId:", userId);
 
+        // ✅ FIXED: Proper sender comparison
         const transformed = msgs.map((msg) => {
-          const isMine = msg.sender === userId;
+          let senderId;
+          if (typeof msg.sender === "string") {
+            senderId = msg.sender;
+          } else if (msg.sender?._id) {
+            senderId = msg.sender._id;
+          } else if (msg.sender?.id) {
+            senderId = msg.sender.id;
+          }
+
+          // ✅ Convert both to strings for comparison
+          const senderStr = String(senderId);
+          const userStr = String(userId);
+          const isMine = senderStr === userStr;
+
           console.log(
-            `  Message ${msg.id}: sender=${msg.sender}, userId=${userId}, isMine=${isMine}`
+            `  Message ${msg.id}: Sender=${senderStr}, User=${userStr}, Mine=${isMine}`
           );
 
           return {
@@ -169,7 +248,7 @@ export default function Messageslayout() {
           };
         });
 
-        console.log("✅ Transformed messages:", transformed);
+        console.log("✅ TRANSFORMED MESSAGES:", transformed);
 
         // ✅ Store the fetched messages
         setAllMessages((prev) => ({
@@ -206,7 +285,16 @@ export default function Messageslayout() {
       return;
     }
 
-    console.log("📤 Sending message:", messageContent.substring(0, 30));
+    if (!userId) {
+      console.error("❌ Cannot send message: No userId");
+      return;
+    }
+
+    console.log("📤 HANDLE SEND MESSAGE:");
+    console.log("  - Room:", selectedConversationId);
+    console.log("  - User:", userId);
+    console.log("  - Content:", messageContent.substring(0, 30));
+
     sendMessage(selectedConversationId, messageContent);
 
     // Update last message preview
@@ -225,7 +313,7 @@ export default function Messageslayout() {
 
   // 4️⃣ Handle typing indicator
   const handleTyping = () => {
-    if (selectedConversationId) {
+    if (selectedConversationId && userId) {
       emitTyping(selectedConversationId, true);
     }
   };
