@@ -1,5 +1,5 @@
 // src/services/userService.js
-import { userApi, authApi, verify } from "./api";
+import { userApi, authApi, verify } from "../api/api";
 import {
   attachTokenToApis,
   storeRefreshToken,
@@ -29,11 +29,8 @@ export const registerRestaurantOwner = async (data) => {
 /* Login: save accessToken + refreshToken based on user role */
 export const loginUser = async (data) => {
   try {
+    console.log("🔐 Attempting login...");
     const res = await authApi.post("/authenticate", data);
-
-    // Backend returns different response structure based on role
-    // For customers: { success, access_token, refresh_token, user }
-    // For restaurant owners: { success, accessToken, user } (refresh token in cookie)
 
     const {
       accessToken,
@@ -48,11 +45,20 @@ export const loginUser = async (data) => {
     const token = accessToken || access_token;
     const refresh = refreshToken || refresh_token;
 
+    console.log("📊 Login response:", {
+      hasToken: !!token,
+      hasRefresh: !!refresh,
+      hasUser: !!user,
+      userRole: user?.role,
+    });
+
     // Store access token and attach to API instances
     if (token) {
       console.log("📝 Storing access token");
       attachTokenToApis(token);
-      localStorage.setItem("token", token);
+    } else {
+      console.error("❌ No access token in response!");
+      throw new Error("No access token received");
     }
 
     // Store user information
@@ -60,16 +66,14 @@ export const loginUser = async (data) => {
       console.log("👤 Storing user info:", user.role);
       localStorage.setItem("user", JSON.stringify(user));
 
-      // For customers, store refresh token in localStorage
-      // For restaurant owners, it's in httpOnly cookie
-      if (user.role === "customer" && refresh) {
-        console.log("📱 Storing refresh token for customer");
-        localStorage.setItem("refreshToken", refresh);
-      } else if (user.role !== "customer") {
-        console.log("🍪 Restaurant owner - refresh token in httpOnly cookie");
-      }
+      // ✅ Use the storeRefreshToken helper function
+      storeRefreshToken(refresh, user.role);
+    } else {
+      console.error("❌ No user in response!");
+      throw new Error("No user information received");
     }
 
+    console.log("✅ Login successful");
     return res.data;
   } catch (err) {
     console.error("❌ Login error:", err.response?.data);
@@ -123,98 +127,31 @@ export const logoutUserApi = async () => {
     const user = JSON.parse(localStorage.getItem("user") || "{}");
     const isCustomer = user.role === "customer";
 
-    // For customers, get refresh token from localStorage
-    // For restaurant owners, cookie will be sent automatically
-    if (isCustomer) {
-      const refreshToken = localStorage.getItem("refreshToken");
-
-      if (refreshToken) {
-        console.log("📱 Customer logout - sending refresh token");
-        // Send refresh token in request body for customers
-        const res = await authApi.post(
-          "/user/logout",
-          { refreshToken }, // Send in body for customers
-          {
-            withCredentials: true,
-          }
-        );
-        clearClientAuth();
-        return res.data;
-      } else {
-        console.log("📱 No refresh token found for customer");
-        clearClientAuth();
-        return { message: "Logged out locally (no refresh token)" };
-      }
-    } else {
-      // Restaurant owner - cookie will be sent automatically
-      console.log("🍪 Restaurant owner logout - cookie will be sent");
-      try {
-        const res = await authApi.post(
-          "/user/logout",
-          {}, // Empty body for restaurant owners
-          {
-            withCredentials: true, // This ensures cookie is sent
-          }
-        );
-        clearClientAuth();
-        return res.data;
-      } catch (err) {
-        // Even if backend fails, clear client state
-        clearClientAuth();
-        return { message: "Logged out locally" };
-      }
-    }
-  } catch (err) {
-    console.error("❌ Logout error:", err);
-    // On any error, still clear client state to log user out locally
-    clearClientAuth();
-
-    // Return success even if backend call failed (user is logged out locally)
-    return {
-      message: "Logged out locally",
-      error: err.response?.data || "Backend logout failed",
-    };
-  }
-};
-
-/* Refresh Token - Manual refresh if needed */
-export const refreshAccessToken = async () => {
-  try {
-    const user = JSON.parse(localStorage.getItem("user") || "{}");
-    const isCustomer = user.role === "customer";
-
     let requestBody = {};
 
-    // For customers, include refresh token in body
     if (isCustomer) {
       const refreshToken = localStorage.getItem("refreshToken");
-      if (!refreshToken) {
-        throw new Error("No refresh token available");
+      if (refreshToken) {
+        console.log("📱 Customer logout - sending refresh token");
+        requestBody = { refreshToken };
+      } else {
+        console.log("📱 No refresh token found for customer");
       }
-      requestBody = { refreshToken };
-      console.log("📱 Manual refresh for customer");
     } else {
-      console.log("🍪 Manual refresh for restaurant owner");
+      console.log("🍪 Restaurant owner logout - cookie will be sent");
     }
 
-    // Call refresh endpoint
-    const res = await authApi.post("/user/refresh", requestBody, {
-      withCredentials: true, // Ensures cookies are sent
+    await authApi.post("/user/logout", requestBody, {
+      withCredentials: true,
     });
 
-    const { accessToken, token } = res.data || {};
-    const newToken = accessToken || token;
-
-    if (newToken) {
-      console.log("✅ Manual refresh successful");
-      attachTokenToApis(newToken);
-      localStorage.setItem("token", newToken);
-    }
-
-    return res.data;
+    clearClientAuth();
+    console.log("✅ Logout successful");
+    return { message: "Logged out successfully" };
   } catch (err) {
-    console.error("❌ Manual refresh failed:", err);
-    throw err.response?.data || { error: "Token refresh failed" };
+    console.error("❌ Logout error:", err);
+    clearClientAuth();
+    return { message: "Logged out locally" };
   }
 };
 

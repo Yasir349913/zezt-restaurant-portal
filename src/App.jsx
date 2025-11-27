@@ -1,5 +1,5 @@
 // src/App.jsx
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import NotificationToast from "./assets/Components/Notifications/NotificationToast";
 
@@ -23,12 +23,50 @@ import StripeCallback from "./assets/Components/Stripe/StripeCallback";
 import StripeRefresh from "./assets/Components/Stripe/StripeRefresh";
 import { SocketProvider } from "./context/SocketContext";
 
-// ✅ Protected Route Component
 const ProtectedRoute = ({ children }) => {
-  const token = localStorage.getItem("token");
-  const user = localStorage.getItem("user");
+  const [checking, setChecking] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
-  if (!token || !user) {
+  useEffect(() => {
+    // Give time for any pending token refresh to complete
+    const checkAuth = () => {
+      const token = localStorage.getItem("token");
+      const user = localStorage.getItem("user");
+
+      console.log("🛡️ ProtectedRoute check:", {
+        hasToken: !!token,
+        hasUser: !!user,
+        tokenPreview: token?.substring(0, 20) + "...",
+      });
+
+      setIsAuthenticated(!!(token && user));
+      setChecking(false);
+    };
+
+    // Small delay to allow interceptor to complete any token refresh
+    const timer = setTimeout(checkAuth, 50);
+
+    return () => clearTimeout(timer);
+  }, []);
+
+  // Show loading state while checking
+  if (checking) {
+    return (
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          height: "100vh",
+        }}
+      >
+        <div>Loading...</div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    console.log("🚫 ProtectedRoute: No auth, redirecting to login");
     return <Navigate to="/login" replace />;
   }
 
@@ -36,6 +74,39 @@ const ProtectedRoute = ({ children }) => {
 };
 
 export default function App() {
+  // Listen for token expiration events
+  useEffect(() => {
+    const handleTokenExpired = () => {
+      console.log("📡 Token expired event received - redirecting to login");
+      // Force redirect to login
+      window.location.href = "/login";
+    };
+
+    window.addEventListener("token-expired", handleTokenExpired);
+
+    return () => {
+      window.removeEventListener("token-expired", handleTokenExpired);
+    };
+  }, []);
+
+  // Optional: Listen for storage changes (for multi-tab sync)
+  useEffect(() => {
+    const handleStorageChange = (e) => {
+      if (e.key === "token" && !e.newValue) {
+        console.log(
+          "🚪 Token removed from storage in another tab - redirecting"
+        );
+        window.location.href = "/login";
+      }
+    };
+
+    window.addEventListener("storage", handleStorageChange);
+
+    return () => {
+      window.removeEventListener("storage", handleStorageChange);
+    };
+  }, []);
+
   return (
     <SocketProvider>
       <BrowserRouter>

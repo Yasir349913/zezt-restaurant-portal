@@ -1,11 +1,7 @@
 // src/context/AuthContext.jsx
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { loginUser } from "../api/auth";
-import {
-  attachTokenToApis,
-  initAuthFromStorage,
-  clearClientAuth,
-} from "../api/authHelpers";
+import { clearClientAuth } from "../api/authHelpers";
 
 const AuthContext = createContext(null);
 
@@ -16,29 +12,39 @@ export const AuthProvider = ({ children }) => {
 
   // Initialize from localStorage on app start
   useEffect(() => {
+    console.log("[AuthContext] Initializing...");
     try {
-      initAuthFromStorage();
       const storedToken = localStorage.getItem("token");
       const storedUser = localStorage.getItem("user");
-      if (storedToken) setToken(storedToken);
+
+      if (storedToken) {
+        console.log("[AuthContext] Token found");
+        setToken(storedToken);
+      }
+
       if (storedUser) {
         try {
-          setUser(JSON.parse(storedUser));
+          const parsedUser = JSON.parse(storedUser);
+          console.log("[AuthContext] User found:", parsedUser.role);
+          setUser(parsedUser);
         } catch {
+          console.error("[AuthContext] Failed to parse user");
           setUser(null);
         }
       }
+    } catch (err) {
+      console.error("[AuthContext] Initialization error:", err);
     } finally {
       setReady(true);
+      console.log("[AuthContext] Ready");
     }
   }, []);
 
   // Listen for token expiry events
   useEffect(() => {
     const handleTokenExpired = () => {
-      console.log("[AuthContext] Token expired, logging out...");
+      console.log("[AuthContext] Token expired event received");
       logout();
-      // Optionally redirect to login
       window.location.href = "/login";
     };
 
@@ -46,46 +52,33 @@ export const AuthProvider = ({ children }) => {
     return () => {
       window.removeEventListener("token-expired", handleTokenExpired);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const login = async ({ email, password }) => {
     try {
+      console.log("[AuthContext] Login attempt");
       const res = await loginUser({ email, password });
 
-      // Extract access token
-      const t =
-        res?.token ||
-        res?.accessToken ||
-        res?.data?.token ||
-        res?.data?.accessToken;
+      // Extract token and user
+      const t = res?.accessToken || res?.access_token;
+      const u = res?.user;
 
-      // Extract user
-      const u = res?.user || res?.data?.user || res?.data || null;
-
-      if (!t) {
+      if (!t || !u) {
+        console.error("[AuthContext] Missing token or user in response");
         return {
           ok: false,
-          error: "Login succeeded but server did not return a token.",
+          error: "Login failed - missing credentials",
         };
       }
 
-      // Attach token to axios and persist
-      attachTokenToApis(t);
+      console.log("[AuthContext] Login successful");
       setToken(t);
-      localStorage.setItem("token", t);
+      setUser(u);
 
-      if (u) {
-        setUser(u);
-        try {
-          localStorage.setItem("user", JSON.stringify(u));
-        } catch (e) {
-          console.warn("Failed to persist user", e);
-        }
-      }
-
-      console.log("✅ Login successful - refresh token stored in cookie");
       return { ok: true, data: { user: u, token: t } };
     } catch (err) {
+      console.error("[AuthContext] Login error:", err);
       const e = err?.response?.data || err;
       return {
         ok: false,
@@ -96,6 +89,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = () => {
+    console.log("[AuthContext] Logout");
     clearClientAuth();
     setToken(null);
     setUser(null);

@@ -5,7 +5,6 @@ import { createNewDeal } from "../../../api/services/Dealsservice";
 import { useRestaurant } from "../../../context/RestaurantContext";
 
 const CreateDealModal = ({ isOpen, onClose, onDealCreated }) => {
-  
   const { restaurantId } = useRestaurant();
 
   // Form state including all required & optional fields (redemption removed)
@@ -30,7 +29,6 @@ const CreateDealModal = ({ isOpen, onClose, onDealCreated }) => {
   const [menuItems, setMenuItems] = useState([
     { item_name: "", item_price: 0, item_description: "" },
   ]);
-
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Calculate deal_expires_in (daily duration in hours) whenever dates change
@@ -38,7 +36,6 @@ const CreateDealModal = ({ isOpen, onClose, onDealCreated }) => {
     if (startDateTime && endDateTime) {
       const start = new Date(startDateTime);
       const end = new Date(endDateTime);
-
       // Extract time components
       const startHours = start.getHours();
       const startMinutes = start.getMinutes();
