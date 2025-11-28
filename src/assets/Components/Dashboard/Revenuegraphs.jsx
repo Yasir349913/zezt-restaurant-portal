@@ -11,7 +11,7 @@ import {
   Tooltip,
 } from "recharts";
 import { useRestaurant } from "../../../context/RestaurantContext";
-import { getDashboardData } from "../../../api/dashbord";
+import { getDashboardData } from "../../../api/Dashbord";
 
 // helpers
 const dowLabel = (n) =>

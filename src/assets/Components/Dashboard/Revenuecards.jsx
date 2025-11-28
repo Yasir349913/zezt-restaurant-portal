@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from "react";
 import Cards from "./Cards";
 import { useRestaurant } from "../../../context/RestaurantContext";
-import { getDashboardData } from "../../../api/dashbord";
+import { getDashboardData } from "../../../api/Dashbord";
 
 const Revenuecards = () => {
   const { restaurantId } = useRestaurant();
