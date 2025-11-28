@@ -1,8 +1,8 @@
 // src/assets/Components/Layout/Settingslayout.jsx
 import React, { useEffect, useState } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
-import EmailInputPopup from "../Settings/EmailInputpopup";
-import PasswordChangePopup from "../Settings/Passwordchangepopup";
+import EmailInputPopup from "../Settings/EmailVerificationPopup";
+import PasswordChangePopup from "../Settings/PasswordChangePopup";
 import EmailVerificationPopup from "../Settings/EmailVerificationPopup";
 import StripeService from "../../../api/services/Stripeservices";
 import { useRestaurant } from "../../../context/RestaurantContext";
