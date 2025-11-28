@@ -1,6 +1,6 @@
 // src/context/RestaurantContext.jsx - UPDATE
 import React, { createContext, useState, useContext, useEffect } from "react";
-import { setRestaurantId as setDashboardServiceRestaurantId } from "../api/dashbord";
+import { setRestaurantId as setDashboardServiceRestaurantId } from "../api/Dashbord";
 import { setRestaurantId as setDealsServiceRestaurantId } from "../api/services/Dealsservice";
 import { setRestaurantId as setAnalyticsServiceRestaurantId } from "../api/services/Analyticsservice";
 import { setRestaurantId as setStripeServiceRestaurantId } from "../api/services/Stripeservices";
