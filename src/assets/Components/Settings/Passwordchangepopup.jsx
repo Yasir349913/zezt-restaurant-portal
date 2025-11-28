@@ -1,7 +1,6 @@
 import React, { useState } from "react";
 import { X, Eye, EyeOff, Lock } from "lucide-react";
 
-
 const PasswordChangePopup = ({ onClose, onChangePassword }) => {
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
