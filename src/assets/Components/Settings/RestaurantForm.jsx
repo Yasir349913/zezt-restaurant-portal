@@ -452,7 +452,6 @@ const RestaurantForm = () => {
               >
                 <option value="open">Open</option>
                 <option value="closed">Closed</option>
-                <option value="temporarily-closed">Temporarily Closed</option>
               </select>
             </div>
           </div>
