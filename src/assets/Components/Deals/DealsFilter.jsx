@@ -12,19 +12,16 @@ const DealsFilter = ({ onFilterApplied, refreshTrigger }) => {
   const [filters, setFilters] = useState({
     dateRange: "All Time",
     deal: "All Deals",
-    redemptions: "All",
     status: "All",
   });
 
   const [dropdownStates, setDropdownStates] = useState({
     dateRange: false,
     deal: false,
-    redemptions: false,
     status: false,
   });
 
   const [dealOptions, setDealOptions] = useState(["All Deals"]);
-  const [redemptionOptions, setRedemptionOptions] = useState(["All"]);
   const statusOptions = ["All", "Active", "Inactive"];
 
   // Last 12 months + All Time
@@ -55,21 +52,13 @@ const DealsFilter = ({ onFilterApplied, refreshTrigger }) => {
       .then((data) => {
         const dealsArray = Array.isArray(data) ? data : data?.deals || [];
         const uniqueTitles = ["All Deals"];
-        const redemptionSet = new Set(["All"]);
 
         dealsArray.forEach((deal) => {
           if (deal.deal_title && !uniqueTitles.includes(deal.deal_title))
             uniqueTitles.push(deal.deal_title);
-          if (deal.redemption !== undefined && deal.redemption !== null)
-            redemptionSet.add(deal.redemption.toString());
         });
 
         setDealOptions(uniqueTitles);
-        setRedemptionOptions(
-          Array.from(redemptionSet).sort((a, b) =>
-            a === "All" ? -1 : b === "All" ? 1 : Number(a) - Number(b)
-          )
-        );
       })
       .catch((err) => console.error("Failed to fetch deals for filters:", err));
   }, [restaurantId, refreshTrigger]);
@@ -87,7 +76,6 @@ const DealsFilter = ({ onFilterApplied, refreshTrigger }) => {
     const reset = {
       dateRange: "All Time",
       deal: "All Deals",
-      redemptions: "All",
       status: "All",
     };
     setFilters(reset);
@@ -116,22 +104,21 @@ const DealsFilter = ({ onFilterApplied, refreshTrigger }) => {
 
     if (activeFilters.deal !== "All Deals")
       payload.dealTitle = activeFilters.deal;
-    if (activeFilters.redemptions !== "All")
-      payload.redemption = activeFilters.redemptions;
+
     if (activeFilters.status !== "All")
       payload.status = activeFilters.status.toLowerCase();
+
     if (startDate) payload.startDate = startDate;
     if (endDate) payload.endDate = endDate;
 
     try {
-      // IMPORTANT: API returns wrapper { totalNoOfDeals, page, limit, totalPages, data: [...] }
       const res = await getAllDealsUsingPortalFilters(payload);
-      // get the array of deals from res.data (or fallback to res if API returns array directly)
+
       const dealsArray = (res && (res.data ?? res)) || [];
+
       if (onFilterApplied) onFilterApplied(dealsArray);
     } catch (err) {
       console.error("Error applying filters:", err);
-      // propagate empty array on error so the parent can show "no results"
       if (onFilterApplied) onFilterApplied([]);
     }
   };
@@ -194,13 +181,6 @@ const DealsFilter = ({ onFilterApplied, refreshTrigger }) => {
           options={dealOptions}
           filterType="deal"
           isOpen={dropdownStates.deal}
-        />
-        <FilterDropdown
-          label="Redemptions"
-          value={filters.redemptions}
-          options={redemptionOptions}
-          filterType="redemptions"
-          isOpen={dropdownStates.redemptions}
         />
         <FilterDropdown
           label="Status"
