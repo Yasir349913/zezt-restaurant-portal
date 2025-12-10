@@ -34,7 +34,7 @@ const Dealscards = ({ refreshTrigger }) => {
             percentage: 0,
           },
           {
-            name: "Total Revenue",
+            name: "Current Month Revenue",
             number: data.totalRevenue || 0,
             percentage: 0,
           },
