@@ -43,7 +43,7 @@ const Revenuecards = () => {
         setCards([
           {
             name: "Total Revenue",
-            number: `Rs ${Number(dash.totalRevenue || 0).toLocaleString()}`,
+            number: `£ ${Number(dash.totalRevenue || 0).toLocaleString()}`,
             percentage: 0,
           },
           {
