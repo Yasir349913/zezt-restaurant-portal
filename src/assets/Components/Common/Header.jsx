@@ -68,14 +68,14 @@ const Header = ({ sidebarOpen, setSidebarOpen }) => {
             <Menu size={18} className="text-gray-600" />
           </button>
 
-          <div className="hidden sm:flex items-center gap-2">
+          {/* <div className="hidden sm:flex items-center gap-2">
             <button className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md">
               <Home size={16} />
             </button>
             <button className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md">
               <ExternalLink size={16} />
             </button>
-          </div>
+          </div> */}
 
           {/* <div className="hidden sm:flex items-center truncate">
             <span className="text-sm text-gray-500 truncate">Dashboard</span>
