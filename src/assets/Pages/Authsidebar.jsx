@@ -10,10 +10,10 @@ const Authsidebar = () => {
         <h1 className="text-4xl font-bold mb-6 leading-tight">
           Run your restaurant smarter with everything in one place.
         </h1>
-        <p className="text-base text-white/90 mb-8 leading-relaxed">
+        {/* <p className="text-base text-white/90 mb-8 leading-relaxed">
           Lorem ipsum dolor sit amet, consectetur adipiscing elit. Pellentesque
           at.
-        </p>
+        </p> */}
 
         {/* Dots indicator */}
         <div className="flex space-x-3">
