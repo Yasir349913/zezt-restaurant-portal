@@ -194,21 +194,16 @@ const DealsTable = ({ refreshTrigger, filteredDeals = null }) => {
           <table className="min-w-full text-sm">
             <thead>
               <tr className="border-b border-gray-200 bg-gray-50">
-                {[
-                  "Deal",
-                  "Start Date",
-                  "End Date",
-                  "Redemptions",
-                  "Status",
-                  "Actions",
-                ].map((header) => (
-                  <th
-                    key={header}
-                    className="text-left py-3 px-4 font-medium text-gray-700 whitespace-nowrap"
-                  >
-                    {header}
-                  </th>
-                ))}
+                {["Deal", "Start Date", "End Date", "Status", "Actions"].map(
+                  (header) => (
+                    <th
+                      key={header}
+                      className="text-left py-3 px-4 font-medium text-gray-700 whitespace-nowrap"
+                    >
+                      {header}
+                    </th>
+                  )
+                )}
               </tr>
             </thead>
             <tbody>
@@ -230,9 +225,7 @@ const DealsTable = ({ refreshTrigger, filteredDeals = null }) => {
                     <td className="py-3 px-4 text-gray-600">
                       {formatDate(deal.deal_expires_at)}
                     </td>
-                    <td className="py-3 px-4 text-gray-600">
-                      {deal.redemption || 0}
-                    </td>
+
                     <td className="py-3 px-4">
                       <StatusBadge status={deal.deal_status} />
                     </td>
