@@ -15,7 +15,6 @@ const DealsTable = ({ refreshTrigger, filteredDeals = null }) => {
   const [loading, setLoading] = useState(true);
   const [actionLoadingId, setActionLoadingId] = useState(null);
 
-  // modal / edit
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingDeal, setEditingDeal] = useState(null);
 
@@ -34,18 +33,15 @@ const DealsTable = ({ refreshTrigger, filteredDeals = null }) => {
       .finally(() => setLoading(false));
   };
 
-  // Use filteredDeals from parent when provided (null => no filter)
   useEffect(() => {
     if (filteredDeals === null) return;
     setDealsData(filteredDeals);
     setLoading(false);
   }, [filteredDeals]);
 
-  // Fetch only when there is no external filtered data
   useEffect(() => {
     if (filteredDeals !== null) return;
     fetchDeals();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [restaurantId, refreshTrigger, filteredDeals]);
 
   const totalPages = 5;
@@ -70,7 +66,7 @@ const DealsTable = ({ refreshTrigger, filteredDeals = null }) => {
     const confirmed = window.confirm(
       `Are you sure you want to delete the deal "${
         deal.deal_title || "Untitled"
-      }"? This action cannot be undone.`
+      }"?`
     );
     if (!confirmed) {
       setActiveDropdown(null);
@@ -84,17 +80,15 @@ const DealsTable = ({ refreshTrigger, filteredDeals = null }) => {
       alert("Deal deleted successfully.");
     } catch (err) {
       console.error("Failed to delete deal:", err);
-      alert("Failed to delete deal. See console for details.");
+      alert("Failed to delete deal.");
     } finally {
       setActionLoadingId(null);
       setActiveDropdown(null);
     }
   };
 
-  // After modal saves (create/update), update row in-place or refetch
   const handleModalSaved = ({ mode, deal }) => {
     if (!deal) {
-      // fallback: refetch when no deal object returned
       fetchDeals();
       return;
     }
@@ -128,7 +122,6 @@ const DealsTable = ({ refreshTrigger, filteredDeals = null }) => {
       <button
         onClick={() => onToggle(dealId)}
         className="p-1 hover:bg-gray-100 rounded transition-colors"
-        disabled={actionLoadingId === dealId}
       >
         <MoreHorizontal className="w-4 h-4 text-gray-500" />
       </button>
@@ -137,17 +130,16 @@ const DealsTable = ({ refreshTrigger, filteredDeals = null }) => {
         <div className="absolute right-0 mt-1 w-32 bg-white border border-gray-200 rounded-md shadow-lg z-50">
           <button
             onClick={() => openEditModal(dealId)}
-            className="w-full px-3 py-2 text-left text-sm transition-colors text-gray-700 hover:bg-gray-50"
+            className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
           >
             Update
           </button>
 
           <button
             onClick={() => handleDelete(dealId)}
-            className="w-full px-3 py-2 text-left text-sm transition-colors text-red-600 hover:bg-gray-50"
-            disabled={actionLoadingId === dealId}
+            className="w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-gray-50"
           >
-            {actionLoadingId === dealId ? "Deleting..." : "Delete"}
+            Delete
           </button>
         </div>
       )}
@@ -160,7 +152,7 @@ const DealsTable = ({ refreshTrigger, filteredDeals = null }) => {
 
     return (
       <span
-        className="px-2 py-1 text-xs rounded-full font-medium whitespace-nowrap"
+        className="px-2 py-1 text-xs rounded-full font-medium"
         style={{
           backgroundColor: isActive ? "#E0F2FE" : "#F3F4F6",
           color: isActive ? "#0369A1" : "#6B7280",
@@ -206,9 +198,11 @@ const DealsTable = ({ refreshTrigger, filteredDeals = null }) => {
                 )}
               </tr>
             </thead>
+
             <tbody>
               {dealsData.map((deal, index) => {
                 const id = deal._id || deal.id || index;
+
                 return (
                   <tr
                     key={id}
@@ -217,11 +211,20 @@ const DealsTable = ({ refreshTrigger, filteredDeals = null }) => {
                     }`}
                   >
                     <td className="py-3 px-4 text-gray-800">
-                      {deal.deal_title || "Untitled Deal"}
+                      <div>{deal.deal_title || "Untitled Deal"}</div>
+
+                      {/* ✅ PRICE with £ symbol */}
+                      {deal.deal_price && (
+                        <div className="text-gray-500 text-xs mt-1">
+                          £{deal.deal_price}
+                        </div>
+                      )}
                     </td>
+
                     <td className="py-3 px-4 text-gray-600">
                       {formatDate(deal.deal_start_date)}
                     </td>
+
                     <td className="py-3 px-4 text-gray-600">
                       {formatDate(deal.deal_expires_at)}
                     </td>
@@ -229,7 +232,8 @@ const DealsTable = ({ refreshTrigger, filteredDeals = null }) => {
                     <td className="py-3 px-4">
                       <StatusBadge status={deal.deal_status} />
                     </td>
-                    <td className="py-3 px-4 relative overflow-visible">
+
+                    <td className="py-3 px-4 relative">
                       <ActionDropdown
                         dealId={id}
                         isOpen={activeDropdown === id}
@@ -243,14 +247,13 @@ const DealsTable = ({ refreshTrigger, filteredDeals = null }) => {
           </table>
         </div>
 
-        {/* Pagination */}
-        <div className="flex flex-wrap items-center justify-between gap-4 px-4 py-3 text-sm">
+        <div className="flex items-center justify-between px-4 py-3 text-sm">
           <div className="text-gray-600">{totalDeals} Deals shown</div>
-          <div className="flex flex-wrap items-center gap-1">
+          <div className="flex items-center gap-1">
             <button
               onClick={() => goToPage(currentPage - 1)}
               disabled={currentPage === 1}
-              className="px-3 py-1 text-sm border transition-colors rounded"
+              className="px-3 py-1 border rounded"
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
@@ -259,23 +262,20 @@ const DealsTable = ({ refreshTrigger, filteredDeals = null }) => {
               <button
                 key={page}
                 onClick={() => goToPage(page)}
-                className={`px-3 py-1 text-sm border transition-colors rounded ${
+                className={`px-3 py-1 border rounded ${
                   currentPage === page
                     ? "bg-blue-50 border-blue-200 text-blue-600"
-                    : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50"
+                    : ""
                 }`}
-                style={{ fontSize: "13px" }}
               >
                 {page}
               </button>
             ))}
 
-            {totalPages > 4 && <span className="px-2 text-gray-400">...</span>}
-
             <button
               onClick={() => goToPage(currentPage + 1)}
               disabled={currentPage === totalPages}
-              className="px-3 py-1 text-sm border transition-colors rounded"
+              className="px-3 py-1 border rounded"
             >
               <ChevronRight className="w-4 h-4" />
             </button>
@@ -283,7 +283,6 @@ const DealsTable = ({ refreshTrigger, filteredDeals = null }) => {
         </div>
       </div>
 
-      {/* Edit Modal */}
       <DealModal
         isOpen={isModalOpen}
         onClose={() => {
