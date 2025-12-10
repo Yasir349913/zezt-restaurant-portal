@@ -132,7 +132,7 @@ const Revenuegraphs = () => {
       <div className="bg-white rounded-lg p-6">
         <div className="flex items-center justify-between mb-6">
           <h3 className="text-lg font-semibold text-gray-800">
-            Monthyly Revenue
+            Monthly Revenue
           </h3>
           <div className="flex items-center gap-4 text-sm">
             <div className="flex items-center gap-2">
