@@ -22,27 +22,21 @@ const Verification = ({ email, onCancel }) => {
     next[index] = value;
     setCode(next);
 
-    // jump to next box
     if (value && index < DIGITS - 1) focusInput(index + 1);
   };
 
   const handleKeyDown = (e, index) => {
     if (e.key === "Backspace") {
       if (code[index]) {
-        // clear current box
         const next = [...code];
         next[index] = "";
         setCode(next);
-      } else if (index > 0) {
-        // go back
-        focusInput(index - 1);
-      }
+      } else if (index > 0) focusInput(index - 1);
     }
     if (e.key === "ArrowLeft" && index > 0) focusInput(index - 1);
     if (e.key === "ArrowRight" && index < DIGITS - 1) focusInput(index + 1);
   };
 
-  // allow pasting full code
   const handlePaste = (e) => {
     const digits = e.clipboardData
       .getData("text")
@@ -53,7 +47,6 @@ const Verification = ({ email, onCancel }) => {
     const next = Array(DIGITS).fill("");
     for (let i = 0; i < digits.length; i++) next[i] = digits[i];
     setCode(next);
-    // focus last filled or next
     const focusIdx = Math.min(digits.length, DIGITS - 1);
     focusInput(focusIdx);
     e.preventDefault();
@@ -81,12 +74,9 @@ const Verification = ({ email, onCancel }) => {
 
     try {
       setLoadingVerify(true);
-      // backend stores 6-digit numeric; sending number is fine (no leading zeros in 6-digit)
       const res = await verifyEmail({ email, code: Number(entered) });
       const okMsg = res?.message || "Code verified successfully.";
       setMessage({ type: "success", text: okMsg });
-
-      // proceed to reset password
       setShowReset(true);
     } catch (err) {
       const data = err?.response?.data || err || {};
@@ -111,7 +101,6 @@ const Verification = ({ email, onCancel }) => {
       const res = await resendCode({ email });
       const okMsg = res?.message || "A new verification code has been sent.";
       setMessage({ type: "success", text: okMsg });
-      // clear inputs for the new code
       setCode(Array(DIGITS).fill(""));
       focusInput(0);
     } catch (err) {
@@ -124,24 +113,21 @@ const Verification = ({ email, onCancel }) => {
     }
   };
 
-  if (showReset) {
-    // Pass email forward so reset-password can use it
-    return <Reset email={email} />;
-  }
+  if (showReset) return <Reset email={email} />;
 
   return (
-    <div className="w-1/2 flex items-center justify-center p-8">
-      <div className="w-80 rounded-lg p-6">
-        <h2 className="text-xl font-semibold mb-2 text-gray-900">
+    <div className="w-full min-h-screen flex items-center justify-center px-4 py-8 sm:px-6 md:px-0 bg-gray-50">
+      <div className="w-full max-w-sm sm:max-w-md md:max-w-lg rounded-lg p-6 sm:p-8 bg-white shadow-md">
+        <h2 className="text-xl sm:text-2xl font-semibold mb-2 text-gray-900 text-center">
           Enter Verification Code
         </h2>
-        <p className="text-sm text-gray-500 mb-6">
-          Enter 6-Digit Code to retrieve password
+        <p className="text-sm sm:text-base text-gray-500 mb-6 text-center">
+          Enter 6-Digit Code to retrieve your password
         </p>
 
         {message?.text && (
           <div
-            className={`mb-4 rounded-md px-3 py-2 text-sm ${
+            className={`mb-4 rounded-md px-3 py-2 text-sm sm:text-base ${
               message.type === "error"
                 ? "bg-red-50 text-red-700 border border-red-200"
                 : "bg-green-50 text-green-700 border border-green-200"
@@ -152,16 +138,15 @@ const Verification = ({ email, onCancel }) => {
         )}
 
         <form onSubmit={handleSubmit}>
-          <div className="flex justify-center gap-4 mb-6">
+          <div className="flex justify-center gap-2 sm:gap-4 mb-6 flex-wrap">
             {code.map((digit, index) => (
               <input
                 key={index}
-                id={`code-${index}`}
                 ref={(el) => (inputsRef.current[index] = el)}
                 type="text"
                 inputMode="numeric"
                 maxLength={1}
-                className="w-12 h-12 text-center border border-gray-300 rounded-md text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-red-400 focus:border-red-400"
+                className="w-10 h-10 sm:w-12 sm:h-12 text-center border border-gray-300 rounded-md text-lg sm:text-xl font-semibold focus:outline-none focus:ring-2 focus:ring-red-400 focus:border-red-400"
                 value={digit}
                 onChange={(e) => handleChange(e, index)}
                 onKeyDown={(e) => handleKeyDown(e, index)}
@@ -171,7 +156,7 @@ const Verification = ({ email, onCancel }) => {
             ))}
           </div>
 
-          <p className="text-sm text-gray-500 text-center mb-6">
+          <p className="text-sm sm:text-base text-gray-500 text-center mb-6">
             Didn’t receive a code?{" "}
             <button
               type="button"
@@ -183,11 +168,11 @@ const Verification = ({ email, onCancel }) => {
             </button>
           </p>
 
-          <div className="flex gap-3">
+          <div className="flex flex-col sm:flex-row gap-3">
             <button
               type="button"
               onClick={() => (onCancel ? onCancel() : window.history.back())}
-              className="w-full border border-gray-300 py-2.5 rounded-md text-sm font-medium hover:bg-[#f5f5f5] transition-colors text-gray-700"
+              className="w-full sm:w-1/2 border border-gray-300 py-2.5 rounded-md text-sm font-medium hover:bg-gray-50 transition-colors text-gray-700"
               disabled={loadingVerify || loadingResend}
             >
               Cancel
@@ -195,7 +180,7 @@ const Verification = ({ email, onCancel }) => {
             <button
               type="submit"
               disabled={loadingVerify || loadingResend}
-              className="w-full bg-[#EB5757] text-white py-2.5 rounded-md text-sm font-medium hover:bg-red-600 transition-colors disabled:opacity-60"
+              className="w-full sm:w-1/2 bg-[#EB5757] text-white py-2.5 rounded-md text-sm font-medium hover:bg-red-600 transition-colors disabled:opacity-60"
             >
               {loadingVerify ? "Verifying..." : "Verify"}
             </button>

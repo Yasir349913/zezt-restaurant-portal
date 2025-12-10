@@ -1,4 +1,3 @@
-// src/pages/Loginform.jsx
 import React, { useState } from "react";
 import { FcGoogle } from "react-icons/fc";
 
@@ -20,10 +19,12 @@ const Loginform = ({
   };
 
   return (
-    <div className="w-full max-w-sm mx-auto p-8">
-      <div className="w-full">
-        <h2 className="text-2xl font-semibold mb-2 text-gray-900">Login</h2>
-        <p className="text-sm text-gray-500 mb-6">
+    <div className="w-full flex justify-center items-center px-4 py-8 sm:px-6 md:px-0">
+      <div className="w-full max-w-md bg-white p-6 sm:p-8 rounded-xl shadow-sm">
+        <h2 className="text-2xl sm:text-3xl font-semibold mb-2 text-gray-900">
+          Login
+        </h2>
+        <p className="text-sm sm:text-base text-gray-500 mb-6">
           Welcome back! Please enter your details below.
         </p>
 
@@ -44,14 +45,15 @@ const Loginform = ({
           Login with email
         </div>
 
-        <form onSubmit={submit}>
-          <div className="mb-4">
+        <form onSubmit={submit} className="space-y-5">
+          {/* Email */}
+          <div>
             <label className="text-sm font-medium text-gray-700 mb-2 block">
               Email
             </label>
             <div className="relative flex items-center border border-gray-300 rounded-md px-3 py-3 focus-within:border-red-400 focus-within:ring-1 focus-within:ring-red-400 bg-white">
               <svg
-                className="w-4 h-4 text-gray-400 mr-3"
+                className="w-4 h-4 text-gray-400 mr-3 flex-shrink-0"
                 fill="none"
                 stroke="currentColor"
                 strokeWidth="2"
@@ -68,22 +70,25 @@ const Loginform = ({
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="johnmiles@example.com"
-                className="w-full outline-none text-sm text-gray-900 placeholder-gray-400 bg-transparent"
+                className="w-full outline-none text-sm sm:text-base text-gray-900 placeholder-gray-400 bg-transparent"
                 autoComplete="email"
               />
             </div>
             {fieldErrors?.email && (
-              <p className="text-xs text-red-600 mt-1">{fieldErrors.email}</p>
+              <p className="text-xs sm:text-sm text-red-600 mt-1">
+                {fieldErrors.email}
+              </p>
             )}
           </div>
 
-          <div className="mb-4">
+          {/* Password */}
+          <div>
             <label className="text-sm font-medium text-gray-700 mb-2 block">
               Password
             </label>
             <div className="relative flex items-center border border-gray-300 rounded-md px-3 py-3 focus-within:border-red-400 focus-within:ring-1 focus-within:ring-red-400 bg-white">
               <svg
-                className="w-4 h-4 text-gray-400 mr-3"
+                className="w-4 h-4 text-gray-400 mr-3 flex-shrink-0"
                 fill="none"
                 stroke="currentColor"
                 strokeWidth="2"
@@ -100,7 +105,7 @@ const Loginform = ({
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
-                className="w-full outline-none text-sm text-gray-900 placeholder-gray-400 bg-transparent"
+                className="w-full outline-none text-sm sm:text-base text-gray-900 placeholder-gray-400 bg-transparent"
                 autoComplete="current-password"
               />
               <button
@@ -146,13 +151,14 @@ const Loginform = ({
               </button>
             </div>
             {fieldErrors?.password && (
-              <p className="text-xs text-red-600 mt-1">
+              <p className="text-xs sm:text-sm text-red-600 mt-1">
                 {fieldErrors.password}
               </p>
             )}
           </div>
 
-          <div className="flex justify-between items-center text-sm mb-6">
+          {/* Remember + Forgot */}
+          <div className="flex flex-col sm:flex-row justify-between items-center text-sm sm:text-base gap-2 sm:gap-0 mb-6">
             <label className="flex items-center gap-2 text-gray-600">
               <input
                 type="checkbox"
@@ -169,16 +175,18 @@ const Loginform = ({
             </button>
           </div>
 
+          {/* Submit */}
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-red-500 text-white py-3 rounded-md hover:bg-red-600 font-medium transition-colors mb-4 disabled:opacity-60"
+            className="w-full bg-red-500 text-white py-3 rounded-md hover:bg-red-600 font-medium transition-colors disabled:opacity-60 mb-4"
           >
             {loading ? "Logging in..." : "Login"}
           </button>
         </form>
 
-        <p className="text-sm text-center text-gray-500">
+        {/* Create Account */}
+        <p className="text-sm sm:text-base text-center text-gray-500">
           Not registered yet?{" "}
           <button
             type="button"

@@ -1,14 +1,7 @@
 // src/pages/Account.jsx
-import React, {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import React, { useCallback, useState, useMemo } from "react";
 import { registerRestaurantOwner } from "../../api/auth";
 
-// Form validation rules
 const VALIDATION = {
   firstName: { min: 3, max: 20 },
   lastName: { min: 3, max: 20 },
@@ -29,28 +22,22 @@ export default function Account() {
   const [message, setMessage] = useState({ type: null, text: null });
   const [fieldErrors, setFieldErrors] = useState({});
 
-  // Handle input changes - optimized with useCallback
   const onChange = useCallback((e) => {
     const { name, value } = e.target;
 
-    setForm((prevForm) => ({ ...prevForm, [name]: value }));
+    setForm((prev) => ({ ...prev, [name]: value }));
 
-    // Clear UI messages for the edited field
-    setMessage((prevMessage) =>
-      prevMessage.text ? { type: null, text: null } : prevMessage
-    );
+    setMessage((prev) => (prev.text ? { type: null, text: null } : prev));
 
-    setFieldErrors((prevErrors) =>
-      prevErrors[name] ? { ...prevErrors, [name]: undefined } : prevErrors
+    setFieldErrors((prev) =>
+      prev[name] ? { ...prev, [name]: undefined } : prev
     );
   }, []);
 
-  // Optional: avoid IME/fast-enter edge-case on submit - optimized
   const onKeyDown = useCallback((e) => {
     if (e.key === "Enter") e.currentTarget.blur();
   }, []);
 
-  // Client-side validation - optimized with useCallback
   const validateForm = useCallback(() => {
     const errors = {};
 
@@ -74,22 +61,20 @@ export default function Account() {
     return Object.keys(errors).length === 0;
   }, [form]);
 
-  // Error normalization helper - memoized
   const normalizeError = useCallback((err) => {
     const data = err || {};
-    if (data.error) return { message: data.error }; // { error: "..." }
-    if (data.message) return { message: data.message }; // { message: "..." }
+    if (data.error) return { message: data.error };
+    if (data.message) return { message: data.message };
     if (data.errors) {
       const fields = {};
-      for (const [k, v] of Object.entries(data.errors)) {
-        fields[k] = Array.isArray(v) ? v[0] : String(v);
+      for (const [key, val] of Object.entries(data.errors)) {
+        fields[key] = Array.isArray(val) ? val[0] : String(val);
       }
       return { message: "Validation error", fields };
     }
     return { message: "Something went wrong" };
   }, []);
 
-  // Handle form submission - optimized
   const onSubmit = useCallback(
     async (e) => {
       e.preventDefault();
@@ -107,12 +92,9 @@ export default function Account() {
         const user = await registerRestaurantOwner(form);
         setMessage({
           type: "success",
-          text: `Account created successfully for ${
-            user?.firstName || "you"
-          }! Welcome aboard.`,
+          text: `Account created successfully for ${user?.firstName || "you"}!`,
         });
-        setForm(initial); // only reset on success
-        // TODO: navigate("/login") or dashboard
+        setForm(initial);
       } catch (e) {
         const err = normalizeError(e);
         if (err.fields) setFieldErrors(err.fields);
@@ -124,7 +106,6 @@ export default function Account() {
     [form, validateForm, normalizeError]
   );
 
-  // Message component - memoized
   const Message = useMemo(
     () =>
       ({ type, text }) => {
@@ -135,40 +116,10 @@ export default function Account() {
           error: "text-red-800 bg-red-50 border-red-200",
         };
 
-        const Icon = () =>
-          type === "success" ? (
-            <svg
-              className="w-4 h-4 mr-2"
-              fill="currentColor"
-              viewBox="0 0 20 20"
-              aria-hidden="true"
-            >
-              <path
-                fillRule="evenodd"
-                d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
-                clipRule="evenodd"
-              />
-            </svg>
-          ) : (
-            <svg
-              className="w-4 h-4 mr-2"
-              fill="currentColor"
-              viewBox="0 0 20 20"
-              aria-hidden="true"
-            >
-              <path
-                fillRule="evenodd"
-                d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
-                clipRule="evenodd"
-              />
-            </svg>
-          );
-
         return (
           <div
-            className={`mb-4 p-3 border rounded-lg flex items-start ${styles[type]}`}
+            className={`mb-4 p-3 border rounded-lg flex items-start gap-2 ${styles[type]}`}
           >
-            <Icon />
             <span className="text-sm font-medium">{text}</span>
           </div>
         );
@@ -176,7 +127,6 @@ export default function Account() {
     []
   );
 
-  // Input field component - memoized to prevent re-renders
   const InputField = useMemo(
     () =>
       React.memo(
@@ -185,14 +135,14 @@ export default function Account() {
           name,
           type = "text",
           placeholder,
-          required = true,
-          value = "",
+          value,
           onChange,
           onKeyDown,
           errorMessage,
+          required = true,
           ...props
         }) => (
-          <div>
+          <div className="w-full">
             <label
               htmlFor={name}
               className="block text-sm font-medium text-gray-700 mb-1"
@@ -203,34 +153,23 @@ export default function Account() {
               id={name}
               name={name}
               type={type}
-              value={value ?? ""} // safe fallback
+              value={value ?? ""}
               onChange={onChange}
               onKeyDown={onKeyDown}
-              className={`w-full px-3 py-2.5 text-sm border rounded-lg transition-colors duration-200 focus:outline-none focus:ring-2 ${
-                errorMessage
-                  ? "border-red-300 focus:ring-red-200 focus:border-red-500"
-                  : "border-gray-300 focus:ring-blue-200 focus:border-blue-500"
-              }`}
               placeholder={placeholder}
+              className={`w-full px-3 py-3 text-sm rounded-lg border 
+                ${
+                  errorMessage
+                    ? "border-red-300 focus:ring-red-200 focus:border-red-500"
+                    : "border-gray-300 focus:ring-blue-200 focus:border-blue-500"
+                } 
+                transition duration-200`}
               required={required}
               {...props}
             />
+
             {errorMessage && (
-              <p className="mt-1 text-xs text-red-600 flex items-center">
-                <svg
-                  className="w-3 h-3 mr-1"
-                  fill="currentColor"
-                  viewBox="0 0 20 20"
-                  aria-hidden="true"
-                >
-                  <path
-                    fillRule="evenodd"
-                    d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-                {errorMessage}
-              </p>
+              <p className="mt-1 text-xs text-red-600">{errorMessage}</p>
             )}
           </div>
         )
@@ -239,20 +178,19 @@ export default function Account() {
   );
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full bg-white rounded-xl shadow-lg p-8 relative">
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4 py-8 sm:py-12">
+      <div className="w-full max-w-md bg-white shadow-lg rounded-xl p-6 sm:p-8">
         <div className="text-center mb-8">
-          <h2 className="text-3xl font-bold text-gray-900 mb-2">
+          <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">
             Create Your Account
           </h2>
-          <p className="text-sm text-gray-600">
-            Join as a restaurant owner and start your journey
+          <p className="text-sm text-gray-600 mt-1">
+            Join as a restaurant owner
           </p>
         </div>
 
         <Message type={message.type} text={message.text} />
 
-        {/* Form with optimized event handlers */}
         <form className="space-y-5" onSubmit={onSubmit} noValidate>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <InputField
@@ -264,9 +202,9 @@ export default function Account() {
               onKeyDown={onKeyDown}
               minLength={VALIDATION.firstName.min}
               maxLength={VALIDATION.firstName.max}
-              autoComplete="given-name"
               errorMessage={fieldErrors.firstName}
             />
+
             <InputField
               label="Last Name"
               name="lastName"
@@ -276,7 +214,6 @@ export default function Account() {
               onKeyDown={onKeyDown}
               minLength={VALIDATION.lastName.min}
               maxLength={VALIDATION.lastName.max}
-              autoComplete="family-name"
               errorMessage={fieldErrors.lastName}
             />
           </div>
@@ -285,11 +222,10 @@ export default function Account() {
             label="Email Address"
             name="email"
             type="email"
-            placeholder="john.doe@example.com"
+            placeholder="john@example.com"
             value={form.email}
             onChange={onChange}
             onKeyDown={onKeyDown}
-            autoComplete="email"
             errorMessage={fieldErrors.email}
           />
 
@@ -303,11 +239,11 @@ export default function Account() {
             onKeyDown={onKeyDown}
             minLength={VALIDATION.password.min}
             maxLength={VALIDATION.password.max}
-            autoComplete="new-password"
             errorMessage={fieldErrors.password}
           />
+
           <div className="text-xs text-gray-500">
-            Password must be {VALIDATION.password.min}-{VALIDATION.password.max}{" "}
+            Password must be {VALIDATION.password.min}–{VALIDATION.password.max}{" "}
             characters long
           </div>
 
@@ -319,7 +255,6 @@ export default function Account() {
             value={form.phoneNumber}
             onChange={onChange}
             onKeyDown={onKeyDown}
-            autoComplete="tel"
             pattern="^[0-9]{10,15}$"
             errorMessage={fieldErrors.phoneNumber}
           />
@@ -327,51 +262,21 @@ export default function Account() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-red-500 hover:bg-red-600 text-white font-semibold py-3 px-4 rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-red-300 focus:ring-offset-2 shadow-md hover:shadow-lg"
-            aria-busy={loading ? "true" : "false"}
+            className="w-full bg-red-500 hover:bg-red-600 text-white font-semibold py-3 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed shadow hover:shadow-lg"
           >
-            {loading ? (
-              <span className="flex items-center justify-center">
-                <svg
-                  className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  aria-hidden="true"
-                >
-                  <circle
-                    className="opacity-25"
-                    cx="12"
-                    cy="12"
-                    r="10"
-                    stroke="currentColor"
-                    strokeWidth="4"
-                  ></circle>
-                  <path
-                    className="opacity-75"
-                    fill="currentColor"
-                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                  ></path>
-                </svg>
-                Creating Account...
-              </span>
-            ) : (
-              "Create Account"
-            )}
+            {loading ? "Creating Account..." : "Create Account"}
           </button>
         </form>
 
-        <div className="mt-8 text-center">
-          <p className="text-sm text-gray-600">
-            Already have an account?{" "}
-            <a
-              href="/login"
-              className="font-medium text-red-500 hover:text-red-600 transition-colors duration-200"
-            >
-              Sign in here
-            </a>
-          </p>
-        </div>
+        <p className="text-center text-sm text-gray-600 mt-6">
+          Already have an account?{" "}
+          <a
+            href="/login"
+            className="text-red-500 font-medium hover:text-red-600"
+          >
+            Sign in here
+          </a>
+        </p>
       </div>
     </div>
   );
