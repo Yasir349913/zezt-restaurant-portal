@@ -1,8 +1,7 @@
 import React from "react";
-import { MoreHorizontal, Phone, Video, Search } from "lucide-react";
 import UserAvatar from "./UserAvater";
 
-const ChatHeader = ({ user, onMore, isLoading = false }) => {
+const ChatHeader = ({ user, isLoading = false }) => {
   if (!user) {
     return (
       <div className="flex items-center justify-between p-4 bg-gray-50 border-b border-gray-100">
@@ -32,12 +31,10 @@ const ChatHeader = ({ user, onMore, isLoading = false }) => {
   const getStatusText = () => {
     if (user.isOnline) return "Online";
     if (user.lastSeen) return `Last seen ${user.lastSeen}`;
-    return "Offline";
+    return null;
   };
 
-  const getStatusColor = () => {
-    return user.isOnline ? "text-green-500" : "text-gray-500";
-  };
+  const statusText = getStatusText();
 
   return (
     <div className="flex items-center justify-between p-4 lg:p-6 bg-white border-b border-gray-100">
@@ -52,43 +49,16 @@ const ChatHeader = ({ user, onMore, isLoading = false }) => {
           <h3 className="font-semibold text-gray-900 text-base lg:text-lg truncate">
             {user.name}
           </h3>
-          <p className={`text-sm font-medium ${getStatusColor()}`}>
-            {getStatusText()}
-          </p>
+          {statusText && (
+            <p
+              className={`text-sm font-medium ${
+                user.isOnline ? "text-green-500" : "text-gray-500"
+              }`}
+            >
+              {statusText}
+            </p>
+          )}
         </div>
-      </div>
-
-      <div className="flex items-center space-x-1 flex-shrink-0">
-        <button
-          className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-          title="Search in conversation"
-        >
-          <Search size={18} className="text-gray-600" />
-        </button>
-
-        <button
-          className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-          title="Voice call"
-        >
-          <Phone size={18} className="text-gray-600" />
-        </button>
-
-        <button
-          className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-          title="Video call"
-        >
-          <Video size={18} className="text-gray-600" />
-        </button>
-
-        {onMore && (
-          <button
-            onClick={() => onMore(user)}
-            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-            title="More options"
-          >
-            <MoreHorizontal size={18} className="text-gray-600" />
-          </button>
-        )}
       </div>
     </div>
   );
