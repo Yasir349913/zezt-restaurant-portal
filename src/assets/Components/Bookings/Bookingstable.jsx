@@ -256,7 +256,7 @@ const BookingTable = ({ bookings, onRefresh }) => {
                       {booking.deal_id?.deal_title || "-"}
                     </div>
                     <div className="text-xs text-gray-500">
-                      ${booking.deal_id?.deal_price || "-"}
+                      £{booking.deal_id?.deal_price || "-"}
                     </div>
                   </td>
 
