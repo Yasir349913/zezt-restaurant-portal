@@ -77,13 +77,13 @@ const Header = ({ sidebarOpen, setSidebarOpen }) => {
             </button>
           </div>
 
-          <div className="hidden sm:flex items-center truncate">
+          {/* <div className="hidden sm:flex items-center truncate">
             <span className="text-sm text-gray-500 truncate">Dashboard</span>
             <span className="text-sm text-gray-400 mx-2">/</span>
             <span className="text-sm font-medium text-gray-800 truncate">
               Overview
             </span>
-          </div>
+          </div> */}
         </div>
 
         {/* Right Section */}
