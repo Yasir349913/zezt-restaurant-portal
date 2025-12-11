@@ -18,11 +18,11 @@ const Card = ({ name, number, percentage }) => {
       </div>
 
       {/* Bottom text */}
-      <div className="mt-[1px]">
+      {/* <div className="mt-[1px]">
         <span className="text-gray-400 text-[9.02px] font-normal">
           +{percentage}% vs last month
         </span>
-      </div>
+      </div> */}
     </div>
   );
 };

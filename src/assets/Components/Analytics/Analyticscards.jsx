@@ -29,7 +29,7 @@ const Analyticscards = ({ onTabChange }) => {
           },
           {
             name: "Total Redemptions",
-            number: data.redemptions ?? 0,
+            number: data.totalRedemptions ?? 0,
             percentage: 0,
           },
           {
@@ -40,6 +40,11 @@ const Analyticscards = ({ onTabChange }) => {
           {
             name: "Average Rating",
             number: data.averageRating?.toFixed(1) ?? "0.0",
+            percentage: 0,
+          },
+          {
+            name: "Average Redemption",
+            number: data.avgRedemptionRate?.toFixed(1) ?? "0.0",
             percentage: 0,
           },
         ];
