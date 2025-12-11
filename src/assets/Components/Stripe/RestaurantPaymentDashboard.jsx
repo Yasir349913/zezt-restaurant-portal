@@ -444,7 +444,7 @@ const RestaurantPaymentDashboard = () => {
               </div>
 
               {/* Commission Info */}
-              <div className="bg-blue-50 p-4 rounded-lg">
+              {/* <div className="bg-blue-50 p-4 rounded-lg">
                 <h4 className="font-medium text-blue-900 mb-2">
                   Additional Charges
                 </h4>
@@ -452,7 +452,7 @@ const RestaurantPaymentDashboard = () => {
                   Platform commission: {restaurantData.commissionRate}% per
                   booking (automatically deducted from customer payments)
                 </p>
-              </div>
+              </div> */}
             </div>
           )}
 
