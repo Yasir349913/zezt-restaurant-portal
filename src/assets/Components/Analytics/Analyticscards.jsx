@@ -34,7 +34,8 @@ const Analyticscards = ({ onTabChange }) => {
           },
           {
             name: "Total Revenue",
-            number: `Rs ${Number(data.totalRevenue ?? 0).toLocaleString()}`, // FIXED
+            number: `£ ${Number(data.totalRevenue ?? 0).toLocaleString()}`, // FIXED
+
             percentage: 0,
           },
           {
