@@ -19,7 +19,8 @@ const RevenuecardItems = ({ onTabChange }) => {
   // Format currency helper
   const formatCurrency = (value) => {
     if (typeof value !== "number") return "-";
-    return `Rs ${value.toLocaleString(undefined, {
+    return `£ ${value.toLocaleString(undefined, {
+
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     })}`;

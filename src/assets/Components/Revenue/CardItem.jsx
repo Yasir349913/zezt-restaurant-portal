@@ -34,7 +34,7 @@ const Carditem = ({ name, number, percentage, subtitle }) => {
       </div>
 
       {/* Bottom text - show percentage description OR subtitle */}
-      <div className="mt-2">
+      {/* <div className="mt-2">
         {hasPercentage ? (
           <span className="text-gray-400 text-[10px] font-normal">
             {isPositive ? "+" : ""}
@@ -45,7 +45,7 @@ const Carditem = ({ name, number, percentage, subtitle }) => {
             {subtitle}
           </span>
         ) : null}
-      </div>
+      </div> */}
     </div>
   );
 };

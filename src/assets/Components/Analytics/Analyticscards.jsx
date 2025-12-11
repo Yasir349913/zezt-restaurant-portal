@@ -18,33 +18,33 @@ const Analyticscards = ({ onTabChange }) => {
       try {
         const data = await getMonthlyStats(restaurantId);
 
-        console.log("📊 Backend Response:", data); // Debug ke liye
+        console.log("📊 Backend Response:", data);
 
-        // Backend se jo data aa raha hai uske according cards banao
+        // Fixed version based on backend response
         const items = [
           {
             name: "Total Bookings",
             number: data.totalBookings ?? 0,
-            percentage: 0, // Agar percentage calculation chahiye to add kar sakte ho
+            percentage: 0,
           },
           {
             name: "Total Redemptions",
-            number: data.totalRedemptions ?? 0,
+            number: data.totalRedemptions ?? 0, // FIXED
             percentage: 0,
           },
           {
             name: "Total Revenue",
-            number: `Rs ${data.totalRevenue?.toLocaleString() ?? 0}`,
+            number: `Rs ${Number(data.totalRevenue ?? 0).toLocaleString()}`, // FIXED
             percentage: 0,
           },
           {
             name: "Average Rating",
-            number: data.averageRating?.toFixed(1) ?? "0.0",
+            number: Number(data.averageRating ?? 0).toFixed(1), // FIXED
             percentage: 0,
           },
           {
             name: "Average Redemption",
-            number: data.avgRedemptionRate?.toFixed(1) ?? "0.0",
+            number: data.avgRedemptionRate ?? "0%", // FIXED
             percentage: 0,
           },
         ];
@@ -73,8 +73,7 @@ const Analyticscards = ({ onTabChange }) => {
       {/* Analytics Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
         {loading
-          ? // Loading skeleton
-            [1, 2, 3, 4].map((i) => (
+          ? [1, 2, 3, 4].map((i) => (
               <div
                 key={i}
                 className="bg-white rounded-lg p-4 h-28 animate-pulse"
