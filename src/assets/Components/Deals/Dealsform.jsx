@@ -13,11 +13,11 @@ const CreateDealModal = ({ isOpen, onClose, onDealCreated }) => {
     deal_start_date: "",
     deal_expires_at: "",
     deal_status: "active",
-    deal_price: 0,
-    slot_duration: 30,
-    max_capacity: 1,
+    deal_price: "",
+    slot_duration: "",
+    max_capacity: "",
     deal_description: "",
-    deal_discount: 0,
+    deal_discount: "",
     deal_menu: [],
     deal_expires_in: 0,
   });
@@ -27,7 +27,7 @@ const CreateDealModal = ({ isOpen, onClose, onDealCreated }) => {
   const [endDateTime, setEndDateTime] = useState("");
 
   const [menuItems, setMenuItems] = useState([
-    { item_name: "", item_price: 0, item_description: "" },
+    { item_name: "", item_price: "", item_description: "" },
   ]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -76,7 +76,7 @@ const CreateDealModal = ({ isOpen, onClose, onDealCreated }) => {
 
   // ✅ Validate total menu price whenever menu items or deal price changes
   useEffect(() => {
-    if (formData.deal_price > 0) {
+    if (formData.deal_price && formData.deal_price !== "") {
       const validMenuItems = menuItems.filter(
         (item) =>
           item.item_name &&
@@ -91,12 +91,12 @@ const CreateDealModal = ({ isOpen, onClose, onDealCreated }) => {
           0
         );
 
-        if (totalMenuPrice < formData.deal_price) {
+        if (totalMenuPrice < Number(formData.deal_price)) {
           setErrors((prev) => ({
             ...prev,
             totalPrice: `Total menu items price ($${totalMenuPrice.toFixed(
               2
-            )}) must be at least $${formData.deal_price}`,
+            )}) must be at least $${Number(formData.deal_price).toFixed(2)}`,
           }));
         } else {
           setErrors((prev) => ({
@@ -142,6 +142,13 @@ const CreateDealModal = ({ isOpen, onClose, onDealCreated }) => {
         name
       )
     ) {
+      // Allow empty string
+      if (value === "") {
+        setFormData((prev) => ({ ...prev, [name]: "" }));
+        setErrors((prev) => ({ ...prev, [name]: "" }));
+        return;
+      }
+
       const numValue = Number(value);
 
       // Clear previous error
@@ -176,6 +183,20 @@ const CreateDealModal = ({ isOpen, onClose, onDealCreated }) => {
     const updatedItems = [...menuItems];
 
     if (field === "item_price") {
+      // Allow empty string
+      if (value === "") {
+        updatedItems[index][field] = "";
+        setMenuItems(updatedItems);
+        setErrors((prev) => ({
+          ...prev,
+          menuItems: {
+            ...prev.menuItems,
+            [index]: "",
+          },
+        }));
+        return;
+      }
+
       const numValue = Number(value);
 
       // Clear previous error for this item
@@ -211,7 +232,7 @@ const CreateDealModal = ({ isOpen, onClose, onDealCreated }) => {
   const addMenuItem = () => {
     setMenuItems([
       ...menuItems,
-      { item_name: "", item_price: 0, item_description: "" },
+      { item_name: "", item_price: "", item_description: "" },
     ]);
   };
 
@@ -245,8 +266,11 @@ const CreateDealModal = ({ isOpen, onClose, onDealCreated }) => {
       !formData.deal_expires_at ||
       !formData.deal_status ||
       !formData.deal_price ||
+      formData.deal_price === "" ||
       !formData.slot_duration ||
-      !formData.max_capacity
+      formData.slot_duration === "" ||
+      !formData.max_capacity ||
+      formData.max_capacity === ""
     ) {
       alert(
         "Please fill in all required fields: Title, Start Date & Time, End Date & Time, Status, Price, Slot Duration, Max Capacity."
@@ -300,7 +324,7 @@ const CreateDealModal = ({ isOpen, onClose, onDealCreated }) => {
       deal_status: formData.deal_status,
       deal_description: formData.deal_description,
       deal_price: Number(formData.deal_price),
-      deal_discount: Number(formData.deal_discount),
+      deal_discount: Number(formData.deal_discount || 0),
       deal_menu: validMenuItems,
       slot_duration: Number(formData.slot_duration),
       max_capacity: Number(formData.max_capacity),
@@ -324,17 +348,17 @@ const CreateDealModal = ({ isOpen, onClose, onDealCreated }) => {
         deal_start_date: "",
         deal_expires_at: "",
         deal_status: "active",
-        deal_price: 0,
-        slot_duration: 30,
-        max_capacity: 1,
+        deal_price: "",
+        slot_duration: "",
+        max_capacity: "",
         deal_description: "",
-        deal_discount: 0,
+        deal_discount: "",
         deal_menu: [],
         deal_expires_in: 0,
       });
       setStartDateTime("");
       setEndDateTime("");
-      setMenuItems([{ item_name: "", item_price: 0, item_description: "" }]);
+      setMenuItems([{ item_name: "", item_price: "", item_description: "" }]);
       setErrors({
         deal_price: "",
         slot_duration: "",
@@ -463,6 +487,7 @@ const CreateDealModal = ({ isOpen, onClose, onDealCreated }) => {
                 name="deal_price"
                 value={formData.deal_price}
                 onChange={handleInputChange}
+                placeholder="0.00"
                 className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#E57272] focus:border-[#E57272] ${
                   errors.deal_price ? "border-red-500" : "border-gray-300"
                 }`}
@@ -480,6 +505,7 @@ const CreateDealModal = ({ isOpen, onClose, onDealCreated }) => {
                 name="slot_duration"
                 value={formData.slot_duration}
                 onChange={handleInputChange}
+                placeholder="e.g., 30"
                 className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#E57272] focus:border-[#E57272] ${
                   errors.slot_duration ? "border-red-500" : "border-gray-300"
                 }`}
@@ -499,6 +525,7 @@ const CreateDealModal = ({ isOpen, onClose, onDealCreated }) => {
                 name="max_capacity"
                 value={formData.max_capacity}
                 onChange={handleInputChange}
+                placeholder="e.g., 1"
                 className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#E57272] focus:border-[#E57272] ${
                   errors.max_capacity ? "border-red-500" : "border-gray-300"
                 }`}
@@ -521,7 +548,7 @@ const CreateDealModal = ({ isOpen, onClose, onDealCreated }) => {
               name="deal_discount"
               value={formData.deal_discount}
               onChange={handleInputChange}
-              placeholder="Discount percentage"
+              placeholder="Enter discount amount (can be 0)"
               className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#E57272] focus:border-[#E57272] ${
                 errors.deal_discount ? "border-red-500" : "border-gray-300"
               }`}
