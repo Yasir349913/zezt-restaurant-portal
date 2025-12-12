@@ -6,13 +6,13 @@ import {
 } from "../../../api/Setting";
 import { useNavigate } from "react-router-dom";
 import { useRestaurant } from "../../../context/RestaurantContext";
-import { useAuth } from "../../../context/AuthContext"; // ✅ Import useAuth
+import { useAuth } from "../../../context/AuthContext";
 import StripeService from "../../../api/services/Stripeservices";
 
 const RestaurantForm = () => {
   const navigate = useNavigate();
   const { setRestaurantId } = useRestaurant();
-  const { user } = useAuth(); // ✅ Get user from AuthContext
+  const { user } = useAuth();
 
   const [isLoading, setIsLoading] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -35,6 +35,22 @@ const RestaurantForm = () => {
     latitude: "",
     longitude: "",
     status: "open",
+  });
+
+  // ✅ Error states for validation
+  const [errors, setErrors] = useState({
+    restaurantName: "",
+    email: "",
+    phone: "",
+    street: "",
+    city: "",
+    state: "",
+    zipCode: "",
+    country: "",
+    cuisine: "",
+    capacity: "",
+    latitude: "",
+    longitude: "",
   });
 
   // ✅ Load existing restaurant
@@ -100,17 +116,153 @@ const RestaurantForm = () => {
     loadExistingRestaurant();
   }, [setRestaurantId]);
 
+  // ✅ Validation functions
+  const validateRestaurantName = (value) => {
+    if (!value.trim()) return "Restaurant name is required";
+    if (value.trim().length < 2)
+      return "Restaurant name must be at least 2 characters";
+    if (/^\d+$/.test(value)) return "Restaurant name cannot be only numbers";
+    if (!/^[a-zA-Z0-9\s&'-]+$/.test(value))
+      return "Restaurant name can only contain letters, numbers, spaces, &, ', and -";
+    return "";
+  };
+
+  const validateEmail = (value) => {
+    if (!value.trim()) return "Email is required";
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(value)) return "Please enter a valid email address";
+    return "";
+  };
+
+  const validatePhone = (value) => {
+    if (!value.trim()) return "Phone number is required";
+    // Remove spaces, dashes, parentheses for validation
+    const cleanPhone = value.replace(/[\s\-()]/g, "");
+    if (!/^[\+]?[0-9]+$/.test(cleanPhone))
+      return "Phone number can only contain digits, +, -, (), and spaces";
+    if (cleanPhone.length < 10)
+      return "Phone number must be at least 10 digits";
+    return "";
+  };
+
+  const validateCuisine = (value) => {
+    if (!value.trim()) return ""; // Optional field
+    if (/\d/.test(value)) return "Cuisine cannot contain numbers";
+    if (!/^[a-zA-Z\s,&'-]+$/.test(value))
+      return "Cuisine can only contain letters, spaces, commas, &, ', and -";
+    return "";
+  };
+
+  const validateCapacity = (value) => {
+    if (!value || value === "") return "Capacity is required";
+    const numValue = Number(value);
+    if (isNaN(numValue)) return "Capacity must be a number";
+    if (numValue < 0) return "Capacity cannot be negative";
+    if (numValue === 0) return "Capacity must be greater than 0";
+    if (!Number.isInteger(numValue)) return "Capacity must be a whole number";
+    return "";
+  };
+
+  const validateStreet = (value) => {
+    if (!value.trim()) return "Street address is required";
+    if (value.trim().length < 3)
+      return "Street address must be at least 3 characters";
+    if (!/^[a-zA-Z0-9\s,.'#-]+$/.test(value))
+      return "Street can only contain letters, numbers, spaces, and common punctuation (,.'#-)";
+    return "";
+  };
+
+  const validateCity = (value) => {
+    if (!value.trim()) return "City is required";
+    if (/\d/.test(value)) return "City name cannot contain numbers";
+    if (!/^[a-zA-Z\s'-]+$/.test(value))
+      return "City can only contain letters, spaces, ', and -";
+    return "";
+  };
+
+  const validateState = (value) => {
+    if (!value.trim()) return "State is required";
+    if (/\d/.test(value)) return "State name cannot contain numbers";
+    if (!/^[a-zA-Z\s'-]+$/.test(value))
+      return "State can only contain letters, spaces, ', and -";
+    return "";
+  };
+
+  const validateZipCode = (value) => {
+    if (!value.trim()) return "Zip code is required";
+    if (!/^[a-zA-Z0-9\s-]+$/.test(value))
+      return "Zip code can only contain letters, numbers, spaces, and -";
+    if (value.includes("-") && parseFloat(value) < 0)
+      return "Zip code cannot be negative";
+    return "";
+  };
+
+  const validateCountry = (value) => {
+    if (!value.trim()) return "Country is required";
+    if (/\d/.test(value)) return "Country name cannot contain numbers";
+    if (!/^[a-zA-Z\s'-]+$/.test(value))
+      return "Country can only contain letters, spaces, ', and -";
+    return "";
+  };
+
+  const validateLatitude = (value) => {
+    if (!value || value === "") return ""; // Optional field
+    const numValue = parseFloat(value);
+    if (isNaN(numValue)) return "Latitude must be a valid number";
+    if (numValue < -90 || numValue > 90)
+      return "Latitude must be between -90 and 90";
+    return "";
+  };
+
+  const validateLongitude = (value) => {
+    if (!value || value === "") return ""; // Optional field
+    const numValue = parseFloat(value);
+    if (isNaN(numValue)) return "Longitude must be a valid number";
+    if (numValue < -180 || numValue > 180)
+      return "Longitude must be between -180 and 180";
+    return "";
+  };
+
   const handleChange = (e) => {
     const { name, value } = e.target;
 
+    // Clear error when user starts typing
     if (name.startsWith("address.")) {
       const field = name.split(".")[1];
+      setErrors((prev) => ({ ...prev, [field]: "" }));
       setFormData((prev) => ({
         ...prev,
         address: { ...prev.address, [field]: value },
       }));
+
+      // Validate on change
+      let error = "";
+      if (field === "street") error = validateStreet(value);
+      else if (field === "city") error = validateCity(value);
+      else if (field === "state") error = validateState(value);
+      else if (field === "zipCode") error = validateZipCode(value);
+      else if (field === "country") error = validateCountry(value);
+
+      if (error) {
+        setErrors((prev) => ({ ...prev, [field]: error }));
+      }
     } else {
+      setErrors((prev) => ({ ...prev, [name]: "" }));
       setFormData((prev) => ({ ...prev, [name]: value }));
+
+      // Validate on change
+      let error = "";
+      if (name === "restaurantName") error = validateRestaurantName(value);
+      else if (name === "email") error = validateEmail(value);
+      else if (name === "phone") error = validatePhone(value);
+      else if (name === "cuisine") error = validateCuisine(value);
+      else if (name === "capacity") error = validateCapacity(value);
+      else if (name === "latitude") error = validateLatitude(value);
+      else if (name === "longitude") error = validateLongitude(value);
+
+      if (error) {
+        setErrors((prev) => ({ ...prev, [name]: error }));
+      }
     }
   };
 
@@ -140,42 +292,31 @@ const RestaurantForm = () => {
       return;
     }
 
-    console.log("👤 Owner ID:", ownerId);
-    console.log("👤 User object:", user);
+    // ✅ Validate all fields before submit
+    const newErrors = {
+      restaurantName: validateRestaurantName(formData.restaurantName),
+      email: validateEmail(formData.email),
+      phone: validatePhone(formData.phone),
+      street: validateStreet(formData.address.street),
+      city: validateCity(formData.address.city),
+      state: validateState(formData.address.state),
+      zipCode: validateZipCode(formData.address.zipCode),
+      country: validateCountry(formData.address.country),
+      cuisine: validateCuisine(formData.cuisine),
+      capacity: validateCapacity(formData.capacity),
+      latitude: validateLatitude(formData.latitude),
+      longitude: validateLongitude(formData.longitude),
+    };
 
-    // ✅ Client-side validation
-    if (!formData.restaurantName || !formData.email || !formData.phone) {
+    setErrors(newErrors);
+
+    // Check if any errors exist
+    const hasErrors = Object.values(newErrors).some((error) => error !== "");
+
+    if (hasErrors) {
       setMessage({
         type: "error",
-        text: "Please fill in all required fields (Restaurant Name, Email, Phone)",
-      });
-      return;
-    }
-
-    if (
-      !formData.address.street ||
-      !formData.address.city ||
-      !formData.address.state
-    ) {
-      setMessage({
-        type: "error",
-        text: "Please provide complete address information",
-      });
-      return;
-    }
-
-    if (formData.latitude && isNaN(parseFloat(formData.latitude))) {
-      setMessage({
-        type: "error",
-        text: "Latitude must be a valid number",
-      });
-      return;
-    }
-
-    if (formData.longitude && isNaN(parseFloat(formData.longitude))) {
-      setMessage({
-        type: "error",
-        text: "Longitude must be a valid number",
+        text: "Please fix all validation errors before submitting",
       });
       return;
     }
@@ -183,12 +324,11 @@ const RestaurantForm = () => {
     setIsLoading(true);
 
     try {
-      // ✅ Map frontend to backend - INCLUDING owner_id
       const restaurantData = {
         name: formData.restaurantName,
         email: formData.email,
         phone: formData.phone,
-        owner_id: ownerId, // ✅ ADD OWNER ID
+        owner_id: ownerId,
         address: {
           street: formData.address.street,
           city: formData.address.city,
@@ -216,25 +356,9 @@ const RestaurantForm = () => {
 
       console.log("📤 Sending to backend:", restaurantData);
 
-      // ✅ Validation check before sending
-      console.log("🔍 Data validation:");
-      console.log("  - Name:", restaurantData.name ? "✓" : "✗");
-      console.log("  - Email:", restaurantData.email ? "✓" : "✗");
-      console.log("  - Phone:", restaurantData.phone ? "✓" : "✗");
-      console.log("  - Owner ID:", restaurantData.owner_id ? "✓" : "✗");
-      console.log(
-        "  - Address complete:",
-        restaurantData.address.street &&
-          restaurantData.address.city &&
-          restaurantData.address.state
-          ? "✓"
-          : "✗"
-      );
-
       let result;
 
       if (isEditing) {
-        // ============ UPDATE MODE ============
         console.log("✏️ Updating restaurant...");
         result = await updateRestaurantProfile(restaurantData);
         console.log("✅ Updated successfully:", result);
@@ -248,7 +372,6 @@ const RestaurantForm = () => {
           navigate("/dashboard");
         }, 1500);
       } else {
-        // ============ CREATE MODE ============
         console.log("🏪 Creating restaurant...");
         result = await createRestaurantProfile(restaurantData);
         console.log("✅ Created successfully:", result);
@@ -271,7 +394,6 @@ const RestaurantForm = () => {
           StripeService.setRestaurantId(restaurantId);
         }
 
-        // ============ CHECK STRIPE ============
         console.log("💳 Checking Stripe...");
 
         try {
@@ -318,25 +440,18 @@ const RestaurantForm = () => {
       }
     } catch (error) {
       console.error("❌ Error:", error);
-      console.error("❌ Full error object:", JSON.stringify(error, null, 2));
-      console.error("❌ Error response:", error.response);
 
       let errorMsg = `Failed to ${isEditing ? "update" : "create"} restaurant`;
 
-      // ✅ Handle backend validation errors (errors array)
       if (
         error?.response?.data?.errors &&
         Array.isArray(error.response.data.errors)
       ) {
         errorMsg =
           "Validation failed:\n" + error.response.data.errors.join("\n");
-      }
-      // ✅ Handle backend message
-      else if (error?.response?.data?.message) {
+      } else if (error?.response?.data?.message) {
         errorMsg = error.response.data.message;
-      }
-      // ✅ Handle standard error
-      else if (error?.message) {
+      } else if (error?.message) {
         errorMsg = error.message;
       }
 
@@ -353,8 +468,6 @@ const RestaurantForm = () => {
         {isEditing ? "Update Restaurant Profile" : "Create Restaurant Profile"}
       </h2>
 
-      {/* ✅ Show user info for debugging */}
-
       {/* Message Display */}
       {message.text && (
         <div
@@ -368,10 +481,7 @@ const RestaurantForm = () => {
         </div>
       )}
 
-      {/* Rest of your form remains the same... */}
       <form onSubmit={handleSubmit} className="space-y-6">
-        {/* ... all your existing form fields ... */}
-
         {/* Basic Information */}
         <div className="bg-white p-6 rounded-lg shadow">
           <h3 className="text-lg font-semibold mb-4">Basic Information</h3>
@@ -386,9 +496,15 @@ const RestaurantForm = () => {
                 name="restaurantName"
                 value={formData.restaurantName}
                 onChange={handleChange}
-                required
-                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500"
+                className={`w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500 ${
+                  errors.restaurantName ? "border-red-500" : "border-gray-300"
+                }`}
               />
+              {errors.restaurantName && (
+                <p className="text-xs text-red-500 mt-1">
+                  {errors.restaurantName}
+                </p>
+              )}
             </div>
 
             <div>
@@ -398,9 +514,13 @@ const RestaurantForm = () => {
                 name="email"
                 value={formData.email}
                 onChange={handleChange}
-                required
-                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500"
+                className={`w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500 ${
+                  errors.email ? "border-red-500" : "border-gray-300"
+                }`}
               />
+              {errors.email && (
+                <p className="text-xs text-red-500 mt-1">{errors.email}</p>
+              )}
             </div>
 
             <div>
@@ -410,9 +530,14 @@ const RestaurantForm = () => {
                 name="phone"
                 value={formData.phone}
                 onChange={handleChange}
-                required
-                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500"
+                placeholder="e.g. +92 300 1234567"
+                className={`w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500 ${
+                  errors.phone ? "border-red-500" : "border-gray-300"
+                }`}
               />
+              {errors.phone && (
+                <p className="text-xs text-red-500 mt-1">{errors.phone}</p>
+              )}
             </div>
 
             <div>
@@ -423,8 +548,13 @@ const RestaurantForm = () => {
                 value={formData.cuisine}
                 onChange={handleChange}
                 placeholder="e.g. Pakistani, Italian"
-                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500"
+                className={`w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500 ${
+                  errors.cuisine ? "border-red-500" : "border-gray-300"
+                }`}
               />
+              {errors.cuisine && (
+                <p className="text-xs text-red-500 mt-1">{errors.cuisine}</p>
+              )}
             </div>
 
             <div>
@@ -436,9 +566,14 @@ const RestaurantForm = () => {
                 name="capacity"
                 value={formData.capacity}
                 onChange={handleChange}
-                required
-                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500"
+                placeholder="e.g. 50"
+                className={`w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500 ${
+                  errors.capacity ? "border-red-500" : "border-gray-300"
+                }`}
               />
+              {errors.capacity && (
+                <p className="text-xs text-red-500 mt-1">{errors.capacity}</p>
+              )}
             </div>
 
             <div>
@@ -447,7 +582,6 @@ const RestaurantForm = () => {
                 name="status"
                 value={formData.status}
                 onChange={handleChange}
-                required
                 className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500"
               >
                 <option value="open">Open</option>
@@ -483,9 +617,14 @@ const RestaurantForm = () => {
                 name="address.street"
                 value={formData.address.street}
                 onChange={handleChange}
-                required
-                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500"
+                placeholder="e.g. 123 Main Street"
+                className={`w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500 ${
+                  errors.street ? "border-red-500" : "border-gray-300"
+                }`}
               />
+              {errors.street && (
+                <p className="text-xs text-red-500 mt-1">{errors.street}</p>
+              )}
             </div>
 
             <div>
@@ -495,9 +634,14 @@ const RestaurantForm = () => {
                 name="address.city"
                 value={formData.address.city}
                 onChange={handleChange}
-                required
-                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500"
+                placeholder="e.g. Lahore"
+                className={`w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500 ${
+                  errors.city ? "border-red-500" : "border-gray-300"
+                }`}
               />
+              {errors.city && (
+                <p className="text-xs text-red-500 mt-1">{errors.city}</p>
+              )}
             </div>
 
             <div>
@@ -507,9 +651,14 @@ const RestaurantForm = () => {
                 name="address.state"
                 value={formData.address.state}
                 onChange={handleChange}
-                required
-                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500"
+                placeholder="e.g. Punjab"
+                className={`w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500 ${
+                  errors.state ? "border-red-500" : "border-gray-300"
+                }`}
               />
+              {errors.state && (
+                <p className="text-xs text-red-500 mt-1">{errors.state}</p>
+              )}
             </div>
 
             <div>
@@ -521,9 +670,14 @@ const RestaurantForm = () => {
                 name="address.zipCode"
                 value={formData.address.zipCode}
                 onChange={handleChange}
-                required
-                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500"
+                placeholder="e.g. 54000"
+                className={`w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500 ${
+                  errors.zipCode ? "border-red-500" : "border-gray-300"
+                }`}
               />
+              {errors.zipCode && (
+                <p className="text-xs text-red-500 mt-1">{errors.zipCode}</p>
+              )}
             </div>
 
             <div>
@@ -535,9 +689,14 @@ const RestaurantForm = () => {
                 name="address.country"
                 value={formData.address.country}
                 onChange={handleChange}
-                required
-                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500"
+                placeholder="e.g. Pakistan"
+                className={`w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500 ${
+                  errors.country ? "border-red-500" : "border-gray-300"
+                }`}
               />
+              {errors.country && (
+                <p className="text-xs text-red-500 mt-1">{errors.country}</p>
+              )}
             </div>
           </div>
         </div>
@@ -556,8 +715,13 @@ const RestaurantForm = () => {
                 value={formData.latitude}
                 onChange={handleChange}
                 placeholder="e.g. 31.44247"
-                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500"
+                className={`w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500 ${
+                  errors.latitude ? "border-red-500" : "border-gray-300"
+                }`}
               />
+              {errors.latitude && (
+                <p className="text-xs text-red-500 mt-1">{errors.latitude}</p>
+              )}
             </div>
 
             <div>
@@ -571,8 +735,13 @@ const RestaurantForm = () => {
                 value={formData.longitude}
                 onChange={handleChange}
                 placeholder="e.g. 74.1889"
-                className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500"
+                className={`w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-500 ${
+                  errors.longitude ? "border-red-500" : "border-gray-300"
+                }`}
               />
+              {errors.longitude && (
+                <p className="text-xs text-red-500 mt-1">{errors.longitude}</p>
+              )}
             </div>
           </div>
         </div>
