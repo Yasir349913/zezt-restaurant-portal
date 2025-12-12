@@ -1,11 +1,11 @@
-// src/pages/Account.jsx
 import React, { useCallback, useState, useMemo } from "react";
 import { registerRestaurantOwner } from "../../api/auth";
 
 const VALIDATION = {
-  firstName: { min: 3, max: 20 },
-  lastName: { min: 3, max: 20 },
+  firstName: { min: 2, max: 20 },
+  lastName: { min: 2, max: 20 },
   password: { min: 8, max: 20 },
+  phone: { min: 10, max: 15 },
 };
 
 const initial = {
@@ -26,39 +26,117 @@ export default function Account() {
     const { name, value } = e.target;
 
     setForm((prev) => ({ ...prev, [name]: value }));
-
     setMessage((prev) => (prev.text ? { type: null, text: null } : prev));
-
     setFieldErrors((prev) =>
       prev[name] ? { ...prev, [name]: undefined } : prev
     );
+
+    validateField(name, value);
   }, []);
+
+  const validateField = (name, value) => {
+    let error = "";
+
+    switch (name) {
+      case "firstName":
+        error = validateFirstName(value);
+        break;
+      case "lastName":
+        error = validateLastName(value);
+        break;
+      case "email":
+        error = validateEmail(value);
+        break;
+      case "password":
+        error = validatePassword(value);
+        break;
+      case "phoneNumber":
+        error = validatePhoneNumber(value);
+        break;
+      default:
+        break;
+    }
+
+    if (error) {
+      setFieldErrors((prev) => ({ ...prev, [name]: error }));
+    }
+  };
+
+  const validateFirstName = (value) => {
+    if (!value.trim()) return "First name is required";
+    if (value.trim().length < VALIDATION.firstName.min)
+      return `First name must be at least ${VALIDATION.firstName.min} characters`;
+    if (value.trim().length > VALIDATION.firstName.max)
+      return `First name must not exceed ${VALIDATION.firstName.max} characters`;
+    if (/\d/.test(value)) return "First name cannot contain numbers";
+    if (!/^[a-zA-Z\s'-]+$/.test(value))
+      return "First name can only contain letters, spaces, ', and -";
+    return "";
+  };
+
+  const validateLastName = (value) => {
+    if (!value.trim()) return "Last name is required";
+    if (value.trim().length < VALIDATION.lastName.min)
+      return `Last name must be at least ${VALIDATION.lastName.min} characters`;
+    if (value.trim().length > VALIDATION.lastName.max)
+      return `Last name must not exceed ${VALIDATION.lastName.max} characters`;
+    if (/\d/.test(value)) return "Last name cannot contain numbers";
+    if (!/^[a-zA-Z\s'-]+$/.test(value))
+      return "Last name can only contain letters, spaces, ', and -";
+    return "";
+  };
+
+  const validateEmail = (value) => {
+    if (!value.trim()) return "Email is required";
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(value)) return "Please enter a valid email address";
+    return "";
+  };
+
+  const validatePassword = (value) => {
+    if (!value) return "Password is required";
+    if (value.length < VALIDATION.password.min)
+      return `Password must be at least ${VALIDATION.password.min} characters`;
+    if (value.length > VALIDATION.password.max)
+      return `Password must not exceed ${VALIDATION.password.max} characters`;
+    if (!/[A-Z]/.test(value))
+      return "Password must contain at least one uppercase letter";
+    if (!/[a-z]/.test(value))
+      return "Password must contain at least one lowercase letter";
+    if (!/[0-9]/.test(value))
+      return "Password must contain at least one number";
+    if (!/[!@#$%^&*(),.?":{}|<>]/.test(value))
+      return 'Password must contain at least one special character (!@#$%^&*(),.?":{}|<>)';
+    return "";
+  };
+
+  const validatePhoneNumber = (value) => {
+    if (!value.trim()) return "Phone number is required";
+    const cleanPhone = value.replace(/[\s\-()]/g, "");
+    if (!/^[\+]?[0-9]+$/.test(cleanPhone))
+      return "Phone number can only contain digits, +, -, (), and spaces";
+    if (cleanPhone.length < VALIDATION.phone.min)
+      return `Phone number must be at least ${VALIDATION.phone.min} digits`;
+    if (cleanPhone.length > VALIDATION.phone.max)
+      return `Phone number must not exceed ${VALIDATION.phone.max} digits`;
+    return "";
+  };
 
   const onKeyDown = useCallback((e) => {
     if (e.key === "Enter") e.currentTarget.blur();
   }, []);
 
   const validateForm = useCallback(() => {
-    const errors = {};
-
-    if (form.firstName.trim().length < VALIDATION.firstName.min) {
-      errors.firstName = `First name must be at least ${VALIDATION.firstName.min} characters`;
-    }
-    if (form.lastName.trim().length < VALIDATION.lastName.min) {
-      errors.lastName = `Last name must be at least ${VALIDATION.lastName.min} characters`;
-    }
-    if (form.password.length < VALIDATION.password.min) {
-      errors.password = `Password must be at least ${VALIDATION.password.min} characters`;
-    }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
-      errors.email = "Please enter a valid email address";
-    }
-    if (!form.phoneNumber.trim()) {
-      errors.phoneNumber = "Phone number is required";
-    }
+    const errors = {
+      firstName: validateFirstName(form.firstName),
+      lastName: validateLastName(form.lastName),
+      email: validateEmail(form.email),
+      password: validatePassword(form.password),
+      phoneNumber: validatePhoneNumber(form.phoneNumber),
+    };
 
     setFieldErrors(errors);
-    return Object.keys(errors).length === 0;
+    return !Object.values(errors).some((error) => error !== "");
   }, [form]);
 
   const normalizeError = useCallback((err) => {
@@ -200,8 +278,6 @@ export default function Account() {
               value={form.firstName}
               onChange={onChange}
               onKeyDown={onKeyDown}
-              minLength={VALIDATION.firstName.min}
-              maxLength={VALIDATION.firstName.max}
               errorMessage={fieldErrors.firstName}
             />
 
@@ -212,8 +288,6 @@ export default function Account() {
               value={form.lastName}
               onChange={onChange}
               onKeyDown={onKeyDown}
-              minLength={VALIDATION.lastName.min}
-              maxLength={VALIDATION.lastName.max}
               errorMessage={fieldErrors.lastName}
             />
           </div>
@@ -237,25 +311,28 @@ export default function Account() {
             value={form.password}
             onChange={onChange}
             onKeyDown={onKeyDown}
-            minLength={VALIDATION.password.min}
-            maxLength={VALIDATION.password.max}
             errorMessage={fieldErrors.password}
           />
 
-          <div className="text-xs text-gray-500">
-            Password must be {VALIDATION.password.min}–{VALIDATION.password.max}{" "}
-            characters long
+          <div className="text-xs text-gray-500 space-y-1">
+            <p className="font-medium">Password must contain:</p>
+            <ul className="list-disc list-inside space-y-0.5 text-gray-600">
+              <li>At least {VALIDATION.password.min} characters</li>
+              <li>One uppercase letter (A-Z)</li>
+              <li>One lowercase letter (a-z)</li>
+              <li>One number (0-9)</li>
+              <li>One special character (!@#$%^&*)</li>
+            </ul>
           </div>
 
           <InputField
             label="Phone Number"
             name="phoneNumber"
             type="tel"
-            placeholder="03001234567"
+            placeholder="+92 300 1234567"
             value={form.phoneNumber}
             onChange={onChange}
             onKeyDown={onKeyDown}
-            pattern="^[0-9]{10,15}$"
             errorMessage={fieldErrors.phoneNumber}
           />
 
@@ -268,6 +345,7 @@ export default function Account() {
           </button>
         </form>
 
+        {/* FIXED THE BROKEN TAG HERE */}
         <p className="text-center text-sm text-gray-600 mt-6">
           Already have an account?{" "}
           <a
