@@ -27,9 +27,9 @@ export default function Dealslayout() {
         const response = await checkAdminStatus();
         console.log("Admin status response:", response);
 
+        // ✅ FIXED: Use is_approved boolean from backend
         setAdminStatus(response.admin_status);
-        setIsApproved(response.admin_status === "approved");
-        // ✅ Store the backend message directly
+        setIsApproved(response.is_approved); // Using the boolean field directly
         setApprovalMessage(response.message || "");
       } catch (error) {
         console.error("Failed to fetch admin status:", error);
@@ -109,7 +109,6 @@ export default function Dealslayout() {
                     <p className="text-sm font-medium text-yellow-800 mb-1">
                       Approval Required
                     </p>
-                    {/* ✅ Display backend message */}
                     <p className="text-xs text-yellow-700 leading-relaxed">
                       {approvalMessage}
                     </p>
@@ -132,7 +131,6 @@ export default function Dealslayout() {
                 <h3 className="text-sm font-medium text-yellow-800">
                   Restaurant Approval Pending
                 </h3>
-                {/* ✅ Display backend message */}
                 <p className="text-sm text-yellow-700 mt-1">
                   {approvalMessage}
                 </p>
