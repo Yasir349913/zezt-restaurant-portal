@@ -177,6 +177,45 @@ const CreateDealModal = ({ isOpen, onClose, onDealCreated }) => {
     return "";
   };
 
+  // ✅ FIXED: Validate dates and times - same date allowed but end time must be after start time
+  const validateDateTime = (startDT, endDT) => {
+    if (!startDT || !endDT) return null;
+
+    const startDate = new Date(startDT);
+    const endDate = new Date(endDT);
+
+    // Get date parts (without time)
+    const startDateOnly = new Date(
+      startDate.getFullYear(),
+      startDate.getMonth(),
+      startDate.getDate()
+    );
+    const endDateOnly = new Date(
+      endDate.getFullYear(),
+      endDate.getMonth(),
+      endDate.getDate()
+    );
+
+    // Check if end date is before start date
+    if (endDateOnly < startDateOnly) {
+      return "End date cannot be before start date";
+    }
+
+    // If same date, check times
+    if (startDateOnly.getTime() === endDateOnly.getTime()) {
+      // Same date - compare times
+      const startTime = startDate.getHours() * 60 + startDate.getMinutes();
+      const endTime = endDate.getHours() * 60 + endDate.getMinutes();
+
+      if (endTime <= startTime) {
+        return "End time must be after start time";
+      }
+    }
+
+    // If different dates, end date must be after start date (already checked above)
+    return null; // No error
+  };
+
   const handleStartDateChange = (e) => {
     const value = e.target.value;
     setStartDateTime(value);
@@ -190,6 +229,7 @@ const CreateDealModal = ({ isOpen, onClose, onDealCreated }) => {
       setErrors((prev) => ({
         ...prev,
         deal_start_date: "Start date & time is required",
+        deal_expires_at: prev.deal_expires_at, // Keep end date error if exists
       }));
     } else {
       const startDate = new Date(value);
@@ -203,13 +243,13 @@ const CreateDealModal = ({ isOpen, onClose, onDealCreated }) => {
       } else {
         setErrors((prev) => ({ ...prev, deal_start_date: "" }));
 
-        // Check against end date if it exists
+        // ✅ Check against end date if it exists
         if (endDateTime) {
-          const endDate = new Date(endDateTime);
-          if (startDate >= endDate) {
+          const dateTimeError = validateDateTime(value, endDateTime);
+          if (dateTimeError) {
             setErrors((prev) => ({
               ...prev,
-              deal_expires_at: "End date must be after start date",
+              deal_expires_at: dateTimeError,
             }));
           } else {
             setErrors((prev) => ({ ...prev, deal_expires_at: "" }));
@@ -234,13 +274,11 @@ const CreateDealModal = ({ isOpen, onClose, onDealCreated }) => {
         deal_expires_at: "End date & time is required",
       }));
     } else if (startDateTime) {
-      const startDate = new Date(startDateTime);
-      const endDate = new Date(value);
-
-      if (endDate <= startDate) {
+      const dateTimeError = validateDateTime(startDateTime, value);
+      if (dateTimeError) {
         setErrors((prev) => ({
           ...prev,
-          deal_expires_at: "End date must be after start date",
+          deal_expires_at: dateTimeError,
         }));
       } else {
         setErrors((prev) => ({ ...prev, deal_expires_at: "" }));
@@ -518,6 +556,15 @@ const CreateDealModal = ({ isOpen, onClose, onDealCreated }) => {
       hasErrors = true;
     }
 
+    // ✅ Validate date/time relationship
+    if (startDateTime && endDateTime) {
+      const dateTimeError = validateDateTime(startDateTime, endDateTime);
+      if (dateTimeError) {
+        newErrors.deal_expires_at = dateTimeError;
+        hasErrors = true;
+      }
+    }
+
     // Validate numeric fields
     if (!formData.slot_duration || formData.slot_duration === "") {
       newErrors.slot_duration = "Slot duration is required";
@@ -571,14 +618,6 @@ const CreateDealModal = ({ isOpen, onClose, onDealCreated }) => {
     // ✅ Validate deal_price is greater than 0
     if (formData.deal_price <= 0) {
       alert("Deal price must be greater than 0. Please add valid menu items.");
-      return;
-    }
-
-    const startDate = new Date(formData.deal_start_date);
-    const endDate = new Date(formData.deal_expires_at);
-
-    if (endDate <= startDate) {
-      alert("End date & time must be after the start date & time.");
       return;
     }
 
