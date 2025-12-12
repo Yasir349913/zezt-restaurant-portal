@@ -13,7 +13,7 @@ export default function Dealslayout() {
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [filteredDeals, setFilteredDeals] = useState(null);
 
-  // ✅ NEW: Admin approval state
+  // ✅ Admin approval state
   const [adminStatus, setAdminStatus] = useState(null);
   const [isApproved, setIsApproved] = useState(false);
   const [approvalMessage, setApprovalMessage] = useState("");
@@ -29,14 +29,13 @@ export default function Dealslayout() {
 
         setAdminStatus(response.admin_status);
         setIsApproved(response.admin_status === "approved");
+        // ✅ Store the backend message directly
         setApprovalMessage(response.message || "");
       } catch (error) {
         console.error("Failed to fetch admin status:", error);
         // On error, assume not approved for safety
         setIsApproved(false);
-        setApprovalMessage(
-          "Unable to verify approval status. Please try again later."
-        );
+        setApprovalMessage("");
       } finally {
         setLoadingStatus(false);
       }
@@ -84,7 +83,7 @@ export default function Dealslayout() {
           <h1 className="text-2xl font-bold text-gray-800">Deals Management</h1>
 
           {/* ✅ Create Deal Button with approval check */}
-          <div className="relative">
+          <div className="relative group">
             <button
               onClick={() => isApproved && setIsModalOpen(true)}
               disabled={!isApproved || loadingStatus}
@@ -98,9 +97,9 @@ export default function Dealslayout() {
               {loadingStatus ? "Loading..." : "Create New Deal"}
             </button>
 
-            {/* ✅ Show approval message if not approved */}
+            {/* ✅ Show backend message on hover if not approved */}
             {!loadingStatus && !isApproved && approvalMessage && (
-              <div className="absolute top-full right-0 mt-2 w-80 bg-yellow-50 border border-yellow-200 rounded-lg p-4 shadow-lg z-10">
+              <div className="invisible group-hover:visible absolute top-full right-0 mt-2 w-80 bg-yellow-50 border border-yellow-200 rounded-lg p-4 shadow-lg z-10 transition-all duration-200">
                 <div className="flex gap-2">
                   <AlertCircle
                     size={20}
@@ -110,6 +109,7 @@ export default function Dealslayout() {
                     <p className="text-sm font-medium text-yellow-800 mb-1">
                       Approval Required
                     </p>
+                    {/* ✅ Display backend message */}
                     <p className="text-xs text-yellow-700 leading-relaxed">
                       {approvalMessage}
                     </p>
@@ -120,8 +120,8 @@ export default function Dealslayout() {
           </div>
         </div>
 
-        {/* ✅ Optional: Show banner if not approved */}
-        {!loadingStatus && !isApproved && (
+        {/* ✅ Banner with backend message if not approved */}
+        {!loadingStatus && !isApproved && approvalMessage && (
           <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-r-lg">
             <div className="flex items-start">
               <AlertCircle
@@ -132,6 +132,7 @@ export default function Dealslayout() {
                 <h3 className="text-sm font-medium text-yellow-800">
                   Restaurant Approval Pending
                 </h3>
+                {/* ✅ Display backend message */}
                 <p className="text-sm text-yellow-700 mt-1">
                   {approvalMessage}
                 </p>
