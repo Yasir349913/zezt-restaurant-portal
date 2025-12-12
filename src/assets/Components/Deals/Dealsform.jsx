@@ -91,13 +91,49 @@ const CreateDealModal = ({ isOpen, onClose, onDealCreated }) => {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+
+    // ✅ Validation for numeric fields
+    if (
+      ["deal_price", "slot_duration", "max_capacity", "deal_discount"].includes(
+        name
+      )
+    ) {
+      const numValue = Number(value);
+
+      // Prevent negative values for all numeric fields
+      if (numValue < 0) {
+        alert(`${name.replace("_", " ")} cannot be negative`);
+        return;
+      }
+
+      // Prevent zero for price, slot_duration, and max_capacity (discount can be 0)
+      if (name !== "deal_discount" && numValue === 0) {
+        alert(`${name.replace("_", " ")} must be greater than 0`);
+        return;
+      }
+
+      setFormData((prev) => ({ ...prev, [name]: numValue }));
+    } else {
+      setFormData((prev) => ({ ...prev, [name]: value }));
+    }
   };
 
   // Handle menu item changes
   const handleMenuItemChange = (index, field, value) => {
     const updatedItems = [...menuItems];
-    updatedItems[index][field] = field === "item_price" ? Number(value) : value;
+
+    if (field === "item_price") {
+      const numValue = Number(value);
+      // ✅ Prevent negative prices for menu items
+      if (numValue < 0) {
+        alert("Item price cannot be negative");
+        return;
+      }
+      updatedItems[index][field] = numValue;
+    } else {
+      updatedItems[index][field] = value;
+    }
+
     setMenuItems(updatedItems);
   };
 
@@ -138,6 +174,28 @@ const CreateDealModal = ({ isOpen, onClose, onDealCreated }) => {
       return;
     }
 
+    // ✅ Validate that price, slot_duration, max_capacity are greater than 0
+    if (formData.deal_price <= 0) {
+      alert("Deal price must be greater than 0");
+      return;
+    }
+
+    if (formData.slot_duration <= 0) {
+      alert("Slot duration must be greater than 0");
+      return;
+    }
+
+    if (formData.max_capacity <= 0) {
+      alert("Max capacity must be greater than 0");
+      return;
+    }
+
+    // ✅ Validate that discount is not negative
+    if (formData.deal_discount < 0) {
+      alert("Discount amount cannot be negative");
+      return;
+    }
+
     // Validate menu items
     const validMenuItems = menuItems.filter(
       (item) =>
@@ -149,6 +207,19 @@ const CreateDealModal = ({ isOpen, onClose, onDealCreated }) => {
 
     if (validMenuItems.length === 0) {
       alert("Please add at least one complete menu item.");
+      return;
+    }
+
+    // ✅ Validate that total menu items price is not less than deal price
+    const totalMenuPrice = validMenuItems.reduce(
+      (sum, item) => sum + Number(item.item_price),
+      0
+    );
+
+    if (totalMenuPrice < formData.deal_price) {
+      alert(
+        `Total menu items price ($${totalMenuPrice}) cannot be less than deal price ($${formData.deal_price})`
+      );
       return;
     }
 
@@ -326,6 +397,8 @@ const CreateDealModal = ({ isOpen, onClose, onDealCreated }) => {
                 name="deal_price"
                 value={formData.deal_price}
                 onChange={handleInputChange}
+                min="0.01"
+                step="0.01"
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#E57272] focus:border-[#E57272]"
               />
             </div>
@@ -338,6 +411,7 @@ const CreateDealModal = ({ isOpen, onClose, onDealCreated }) => {
                 name="slot_duration"
                 value={formData.slot_duration}
                 onChange={handleInputChange}
+                min="1"
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#E57272] focus:border-[#E57272]"
               />
             </div>
@@ -350,6 +424,7 @@ const CreateDealModal = ({ isOpen, onClose, onDealCreated }) => {
                 name="max_capacity"
                 value={formData.max_capacity}
                 onChange={handleInputChange}
+                min="1"
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#E57272] focus:border-[#E57272]"
               />
             </div>
@@ -366,6 +441,8 @@ const CreateDealModal = ({ isOpen, onClose, onDealCreated }) => {
               value={formData.deal_discount}
               onChange={handleInputChange}
               placeholder="Discount percentage"
+              min="0"
+              step="0.01"
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#E57272] focus:border-[#E57272]"
             />
           </div>
@@ -438,6 +515,8 @@ const CreateDealModal = ({ isOpen, onClose, onDealCreated }) => {
                     onChange={(e) =>
                       handleMenuItemChange(index, "item_price", e.target.value)
                     }
+                    min="0"
+                    step="0.01"
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#E57272] focus:border-[#E57272]"
                   />
 
