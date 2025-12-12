@@ -13,7 +13,7 @@ const CreateDealModal = ({ isOpen, onClose, onDealCreated }) => {
     deal_start_date: "",
     deal_expires_at: "",
     deal_status: "active",
-    deal_price: "",
+    deal_price: 0, // Will be auto-calculated
     slot_duration: "",
     max_capacity: "",
     deal_description: "",
@@ -31,14 +31,12 @@ const CreateDealModal = ({ isOpen, onClose, onDealCreated }) => {
   ]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // ✅ Error states
+  // ✅ Error states (removed deal_price and totalPrice)
   const [errors, setErrors] = useState({
-    deal_price: "",
     slot_duration: "",
     max_capacity: "",
     deal_discount: "",
     menuItems: {},
-    totalPrice: "",
   });
 
   // Calculate deal_expires_in (daily duration in hours) whenever dates change
@@ -74,55 +72,33 @@ const CreateDealModal = ({ isOpen, onClose, onDealCreated }) => {
     }
   }, [startDateTime, endDateTime]);
 
-  // ✅ Validate total menu price whenever menu items or deal price changes - MUST BE EXACTLY EQUAL
+  // ✅ AUTO-CALCULATE deal price from menu items
   useEffect(() => {
-    if (formData.deal_price && formData.deal_price !== "") {
-      const validMenuItems = menuItems.filter(
-        (item) =>
-          item.item_name &&
-          item.item_price !== "" &&
-          item.item_price !== null &&
-          item.item_description
+    const validMenuItems = menuItems.filter(
+      (item) =>
+        item.item_name &&
+        item.item_price !== "" &&
+        item.item_price !== null &&
+        item.item_description
+    );
+
+    if (validMenuItems.length > 0) {
+      const totalPrice = validMenuItems.reduce(
+        (sum, item) => sum + Number(item.item_price || 0),
+        0
       );
 
-      if (validMenuItems.length > 0) {
-        const totalMenuPrice = validMenuItems.reduce(
-          (sum, item) => sum + Number(item.item_price),
-          0
-        );
-
-        const dealPrice = Number(formData.deal_price);
-
-        // ✅ Check if total is NOT equal to deal price
-        if (totalMenuPrice !== dealPrice) {
-          if (totalMenuPrice < dealPrice) {
-            setErrors((prev) => ({
-              ...prev,
-              totalPrice: `Total menu items price ($${totalMenuPrice.toFixed(
-                2
-              )}) is less than deal price ($${dealPrice.toFixed(
-                2
-              )}). They must be exactly equal.`,
-            }));
-          } else {
-            setErrors((prev) => ({
-              ...prev,
-              totalPrice: `Total menu items price ($${totalMenuPrice.toFixed(
-                2
-              )}) is greater than deal price ($${dealPrice.toFixed(
-                2
-              )}). They must be exactly equal.`,
-            }));
-          }
-        } else {
-          setErrors((prev) => ({
-            ...prev,
-            totalPrice: "",
-          }));
-        }
-      }
+      setFormData((prev) => ({
+        ...prev,
+        deal_price: totalPrice,
+      }));
+    } else {
+      setFormData((prev) => ({
+        ...prev,
+        deal_price: 0,
+      }));
     }
-  }, [menuItems, formData.deal_price]);
+  }, [menuItems]);
 
   // Convert local datetime to UTC ISO string
   const convertToUTC = (localDateTime) => {
@@ -152,12 +128,8 @@ const CreateDealModal = ({ isOpen, onClose, onDealCreated }) => {
   const handleInputChange = (e) => {
     const { name, value } = e.target;
 
-    // ✅ Validation for numeric fields
-    if (
-      ["deal_price", "slot_duration", "max_capacity", "deal_discount"].includes(
-        name
-      )
-    ) {
+    // ✅ Validation for numeric fields (removed deal_price)
+    if (["slot_duration", "max_capacity", "deal_discount"].includes(name)) {
       // Allow empty string
       if (value === "") {
         setFormData((prev) => ({ ...prev, [name]: "" }));
@@ -179,7 +151,7 @@ const CreateDealModal = ({ isOpen, onClose, onDealCreated }) => {
         return;
       }
 
-      // Prevent zero for price, slot_duration, and max_capacity (discount can be 0)
+      // Prevent zero for slot_duration and max_capacity (discount can be 0)
       if (name !== "deal_discount" && numValue === 0) {
         setErrors((prev) => ({
           ...prev,
@@ -275,32 +247,28 @@ const CreateDealModal = ({ isOpen, onClose, onDealCreated }) => {
       return;
     }
 
-    // Validate required fields
+    // Validate required fields (removed deal_price check since it's auto-calculated)
     if (
       !formData.deal_title ||
       !formData.deal_start_date ||
       !formData.deal_expires_at ||
       !formData.deal_status ||
-      !formData.deal_price ||
-      formData.deal_price === "" ||
       !formData.slot_duration ||
       formData.slot_duration === "" ||
       !formData.max_capacity ||
       formData.max_capacity === ""
     ) {
       alert(
-        "Please fill in all required fields: Title, Start Date & Time, End Date & Time, Status, Price, Slot Duration, Max Capacity."
+        "Please fill in all required fields: Title, Start Date & Time, End Date & Time, Status, Slot Duration, Max Capacity."
       );
       return;
     }
 
     // ✅ Check if there are any validation errors
     if (
-      errors.deal_price ||
       errors.slot_duration ||
       errors.max_capacity ||
       errors.deal_discount ||
-      errors.totalPrice ||
       Object.keys(errors.menuItems).some((key) => errors.menuItems[key])
     ) {
       alert("Please fix all validation errors before submitting.");
@@ -318,6 +286,12 @@ const CreateDealModal = ({ isOpen, onClose, onDealCreated }) => {
 
     if (validMenuItems.length === 0) {
       alert("Please add at least one complete menu item.");
+      return;
+    }
+
+    // ✅ Validate deal_price is greater than 0
+    if (formData.deal_price <= 0) {
+      alert("Deal price must be greater than 0. Please add valid menu items.");
       return;
     }
 
@@ -339,7 +313,7 @@ const CreateDealModal = ({ isOpen, onClose, onDealCreated }) => {
       deal_expires_in: formData.deal_expires_in, // Daily duration in hours
       deal_status: formData.deal_status,
       deal_description: formData.deal_description,
-      deal_price: Number(formData.deal_price),
+      deal_price: Number(formData.deal_price), // Auto-calculated
       deal_discount: Number(formData.deal_discount || 0),
       deal_menu: validMenuItems,
       slot_duration: Number(formData.slot_duration),
@@ -364,7 +338,7 @@ const CreateDealModal = ({ isOpen, onClose, onDealCreated }) => {
         deal_start_date: "",
         deal_expires_at: "",
         deal_status: "active",
-        deal_price: "",
+        deal_price: 0,
         slot_duration: "",
         max_capacity: "",
         deal_description: "",
@@ -376,12 +350,10 @@ const CreateDealModal = ({ isOpen, onClose, onDealCreated }) => {
       setEndDateTime("");
       setMenuItems([{ item_name: "", item_price: "", item_description: "" }]);
       setErrors({
-        deal_price: "",
         slot_duration: "",
         max_capacity: "",
         deal_discount: "",
         menuItems: {},
-        totalPrice: "",
       });
     } catch (err) {
       console.error("Failed to create deal:", err);
@@ -492,26 +464,10 @@ const CreateDealModal = ({ isOpen, onClose, onDealCreated }) => {
             </select>
           </div>
 
-          {/* Price, Slot Duration & Max Capacity */}
-          <div className="grid grid-cols-3 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Price *
-              </label>
-              <input
-                type="number"
-                name="deal_price"
-                value={formData.deal_price}
-                onChange={handleInputChange}
-                placeholder="0.00"
-                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#E57272] focus:border-[#E57272] ${
-                  errors.deal_price ? "border-red-500" : "border-gray-300"
-                }`}
-              />
-              {errors.deal_price && (
-                <p className="text-xs text-red-500 mt-1">{errors.deal_price}</p>
-              )}
-            </div>
+          {/* ✅ REMOVED: Price field - now auto-calculated from menu items */}
+
+          {/* Slot Duration & Max Capacity (now 2 columns instead of 3) */}
+          <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Slot Duration (min) *
@@ -679,10 +635,15 @@ const CreateDealModal = ({ isOpen, onClose, onDealCreated }) => {
               </div>
             ))}
 
-            {/* ✅ Total Price Validation Message */}
-            {errors.totalPrice && (
-              <div className="bg-red-50 border border-red-300 rounded-md p-3 mt-2">
-                <p className="text-sm text-red-600">{errors.totalPrice}</p>
+            {/* ✅ Display auto-calculated total price */}
+            {formData.deal_price > 0 && (
+              <div className="bg-green-50 border border-green-300 rounded-md p-3 mt-2">
+                <p className="text-sm font-medium text-green-700">
+                  Total Deal Price: ${formData.deal_price.toFixed(2)}
+                </p>
+                <p className="text-xs text-green-600 mt-1">
+                  (Auto-calculated from menu items)
+                </p>
               </div>
             )}
           </div>
