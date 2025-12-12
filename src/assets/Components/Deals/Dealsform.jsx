@@ -7,7 +7,7 @@ import { useRestaurant } from "../../../context/RestaurantContext";
 const CreateDealModal = ({ isOpen, onClose, onDealCreated }) => {
   const { restaurantId } = useRestaurant();
 
-  // Form state including all required & optional fields (redemption removed)
+  // Form state including all required & optional fields
   const [formData, setFormData] = useState({
     deal_title: "",
     deal_start_date: "",
@@ -31,12 +31,18 @@ const CreateDealModal = ({ isOpen, onClose, onDealCreated }) => {
   ]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // ✅ Error states (removed deal_price and totalPrice)
+  // ✅ Comprehensive error states for all fields
   const [errors, setErrors] = useState({
+    deal_title: "",
+    deal_start_date: "",
+    deal_expires_at: "",
     slot_duration: "",
     max_capacity: "",
     deal_discount: "",
-    menuItems: {},
+    deal_description: "",
+    menuItems: {}, // For individual menu item errors
+    menuItemNames: {}, // For menu item name errors
+    menuItemDescriptions: {}, // For menu item description errors
   });
 
   // Calculate deal_expires_in (daily duration in hours) whenever dates change
@@ -107,6 +113,70 @@ const CreateDealModal = ({ isOpen, onClose, onDealCreated }) => {
     return date.toISOString();
   };
 
+  // ✅ Validate deal title
+  const validateDealTitle = (value) => {
+    if (!value || value.trim() === "") {
+      return "Deal title is required";
+    }
+    if (value.trim().length < 3) {
+      return "Deal title must be at least 3 characters";
+    }
+    if (value.length > 100) {
+      return "Deal title must not exceed 100 characters";
+    }
+    // Allow letters, numbers, spaces, and common punctuation
+    if (!/^[a-zA-Z0-9\s,.'&!%-]+$/.test(value)) {
+      return "Deal title contains invalid characters";
+    }
+    return "";
+  };
+
+  // ✅ Validate deal description
+  const validateDescription = (value) => {
+    if (!value || value.trim() === "") {
+      return "Description is required";
+    }
+    if (value.trim().length < 10) {
+      return "Description must be at least 10 characters";
+    }
+    if (value.length > 500) {
+      return "Description must not exceed 500 characters";
+    }
+    return "";
+  };
+
+  // ✅ Validate menu item name
+  const validateMenuItemName = (value) => {
+    if (!value || value.trim() === "") {
+      return "Item name is required";
+    }
+    if (value.trim().length < 2) {
+      return "Item name must be at least 2 characters";
+    }
+    if (value.length > 50) {
+      return "Item name must not exceed 50 characters";
+    }
+    // Allow letters, numbers, spaces, and common punctuation
+    if (!/^[a-zA-Z0-9\s,.'&!%-]+$/.test(value)) {
+      return "Item name contains invalid characters";
+    }
+    return "";
+  };
+
+  // ✅ Validate menu item description
+  const validateMenuItemDescription = (value) => {
+    if (!value || value.trim() === "") {
+      return "Item description is required";
+    }
+    if (value.trim().length < 5) {
+      return "Item description must be at least 5 characters";
+    }
+    if (value.length > 200) {
+      return "Item description must not exceed 200 characters";
+    }
+    return "";
+  };
+
   const handleStartDateChange = (e) => {
     const value = e.target.value;
     setStartDateTime(value);
@@ -114,6 +184,39 @@ const CreateDealModal = ({ isOpen, onClose, onDealCreated }) => {
       ...prev,
       deal_start_date: convertToUTC(value),
     }));
+
+    // ✅ Validate start date
+    if (!value) {
+      setErrors((prev) => ({
+        ...prev,
+        deal_start_date: "Start date & time is required",
+      }));
+    } else {
+      const startDate = new Date(value);
+      const now = new Date();
+
+      if (startDate < now) {
+        setErrors((prev) => ({
+          ...prev,
+          deal_start_date: "Start date cannot be in the past",
+        }));
+      } else {
+        setErrors((prev) => ({ ...prev, deal_start_date: "" }));
+
+        // Check against end date if it exists
+        if (endDateTime) {
+          const endDate = new Date(endDateTime);
+          if (startDate >= endDate) {
+            setErrors((prev) => ({
+              ...prev,
+              deal_expires_at: "End date must be after start date",
+            }));
+          } else {
+            setErrors((prev) => ({ ...prev, deal_expires_at: "" }));
+          }
+        }
+      }
+    }
   };
 
   const handleEndDateChange = (e) => {
@@ -123,12 +226,50 @@ const CreateDealModal = ({ isOpen, onClose, onDealCreated }) => {
       ...prev,
       deal_expires_at: convertToUTC(value),
     }));
+
+    // ✅ Validate end date
+    if (!value) {
+      setErrors((prev) => ({
+        ...prev,
+        deal_expires_at: "End date & time is required",
+      }));
+    } else if (startDateTime) {
+      const startDate = new Date(startDateTime);
+      const endDate = new Date(value);
+
+      if (endDate <= startDate) {
+        setErrors((prev) => ({
+          ...prev,
+          deal_expires_at: "End date must be after start date",
+        }));
+      } else {
+        setErrors((prev) => ({ ...prev, deal_expires_at: "" }));
+      }
+    } else {
+      setErrors((prev) => ({ ...prev, deal_expires_at: "" }));
+    }
   };
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
 
-    // ✅ Validation for numeric fields (removed deal_price)
+    // ✅ Handle deal title validation
+    if (name === "deal_title") {
+      setFormData((prev) => ({ ...prev, [name]: value }));
+      const error = validateDealTitle(value);
+      setErrors((prev) => ({ ...prev, deal_title: error }));
+      return;
+    }
+
+    // ✅ Handle description validation
+    if (name === "deal_description") {
+      setFormData((prev) => ({ ...prev, [name]: value }));
+      const error = validateDescription(value);
+      setErrors((prev) => ({ ...prev, deal_description: error }));
+      return;
+    }
+
+    // ✅ Validation for numeric fields
     if (["slot_duration", "max_capacity", "deal_discount"].includes(name)) {
       // Allow empty string
       if (value === "") {
@@ -160,15 +301,87 @@ const CreateDealModal = ({ isOpen, onClose, onDealCreated }) => {
         return;
       }
 
+      // ✅ Additional validation for slot_duration
+      if (name === "slot_duration") {
+        if (numValue > 1440) {
+          setErrors((prev) => ({
+            ...prev,
+            slot_duration: "Cannot exceed 1440 minutes (24 hours)",
+          }));
+          return;
+        }
+        if (numValue < 15) {
+          setErrors((prev) => ({
+            ...prev,
+            slot_duration: "Minimum slot duration is 15 minutes",
+          }));
+          return;
+        }
+      }
+
+      // ✅ Additional validation for max_capacity
+      if (name === "max_capacity") {
+        if (numValue > 1000) {
+          setErrors((prev) => ({
+            ...prev,
+            max_capacity: "Cannot exceed 1000",
+          }));
+          return;
+        }
+      }
+
+      // ✅ Additional validation for discount
+      if (name === "deal_discount") {
+        if (numValue > 100000) {
+          setErrors((prev) => ({
+            ...prev,
+            deal_discount: "Discount amount seems too high",
+          }));
+          return;
+        }
+      }
+
       setFormData((prev) => ({ ...prev, [name]: numValue }));
     } else {
       setFormData((prev) => ({ ...prev, [name]: value }));
     }
   };
 
-  // Handle menu item changes
+  // Handle menu item changes with validation
   const handleMenuItemChange = (index, field, value) => {
     const updatedItems = [...menuItems];
+
+    if (field === "item_name") {
+      updatedItems[index][field] = value;
+      setMenuItems(updatedItems);
+
+      // ✅ Validate item name
+      const error = validateMenuItemName(value);
+      setErrors((prev) => ({
+        ...prev,
+        menuItemNames: {
+          ...prev.menuItemNames,
+          [index]: error,
+        },
+      }));
+      return;
+    }
+
+    if (field === "item_description") {
+      updatedItems[index][field] = value;
+      setMenuItems(updatedItems);
+
+      // ✅ Validate item description
+      const error = validateMenuItemDescription(value);
+      setErrors((prev) => ({
+        ...prev,
+        menuItemDescriptions: {
+          ...prev.menuItemDescriptions,
+          [index]: error,
+        },
+      }));
+      return;
+    }
 
     if (field === "item_price") {
       // Allow empty string
@@ -208,9 +421,31 @@ const CreateDealModal = ({ isOpen, onClose, onDealCreated }) => {
         return;
       }
 
+      // ✅ Prevent zero price
+      if (numValue === 0) {
+        setErrors((prev) => ({
+          ...prev,
+          menuItems: {
+            ...prev.menuItems,
+            [index]: "Item price must be greater than 0",
+          },
+        }));
+        return;
+      }
+
+      // ✅ Maximum price validation
+      if (numValue > 100000) {
+        setErrors((prev) => ({
+          ...prev,
+          menuItems: {
+            ...prev.menuItems,
+            [index]: "Item price seems too high",
+          },
+        }));
+        return;
+      }
+
       updatedItems[index][field] = numValue;
-    } else {
-      updatedItems[index][field] = value;
     }
 
     setMenuItems(updatedItems);
@@ -229,13 +464,21 @@ const CreateDealModal = ({ isOpen, onClose, onDealCreated }) => {
     if (menuItems.length > 1) {
       setMenuItems(menuItems.filter((_, i) => i !== index));
 
-      // Clear error for this item
+      // Clear errors for this item
       setErrors((prev) => {
         const newMenuErrors = { ...prev.menuItems };
+        const newNameErrors = { ...prev.menuItemNames };
+        const newDescErrors = { ...prev.menuItemDescriptions };
+
         delete newMenuErrors[index];
+        delete newNameErrors[index];
+        delete newDescErrors[index];
+
         return {
           ...prev,
           menuItems: newMenuErrors,
+          menuItemNames: newNameErrors,
+          menuItemDescriptions: newDescErrors,
         };
       });
     }
@@ -247,30 +490,66 @@ const CreateDealModal = ({ isOpen, onClose, onDealCreated }) => {
       return;
     }
 
-    // Validate required fields (removed deal_price check since it's auto-calculated)
-    if (
-      !formData.deal_title ||
-      !formData.deal_start_date ||
-      !formData.deal_expires_at ||
-      !formData.deal_status ||
-      !formData.slot_duration ||
-      formData.slot_duration === "" ||
-      !formData.max_capacity ||
-      formData.max_capacity === ""
-    ) {
-      alert(
-        "Please fill in all required fields: Title, Start Date & Time, End Date & Time, Status, Slot Duration, Max Capacity."
-      );
-      return;
+    // ✅ Validate all fields before submission
+    let hasErrors = false;
+    const newErrors = { ...errors };
+
+    // Validate title
+    const titleError = validateDealTitle(formData.deal_title);
+    if (titleError) {
+      newErrors.deal_title = titleError;
+      hasErrors = true;
     }
 
-    // ✅ Check if there are any validation errors
+    // Validate description
+    const descError = validateDescription(formData.deal_description);
+    if (descError) {
+      newErrors.deal_description = descError;
+      hasErrors = true;
+    }
+
+    // Validate dates
+    if (!startDateTime) {
+      newErrors.deal_start_date = "Start date & time is required";
+      hasErrors = true;
+    }
+    if (!endDateTime) {
+      newErrors.deal_expires_at = "End date & time is required";
+      hasErrors = true;
+    }
+
+    // Validate numeric fields
+    if (!formData.slot_duration || formData.slot_duration === "") {
+      newErrors.slot_duration = "Slot duration is required";
+      hasErrors = true;
+    }
+    if (!formData.max_capacity || formData.max_capacity === "") {
+      newErrors.max_capacity = "Max capacity is required";
+      hasErrors = true;
+    }
+
+    // ✅ Check if there are any existing validation errors
     if (
+      errors.deal_title ||
+      errors.deal_start_date ||
+      errors.deal_expires_at ||
       errors.slot_duration ||
       errors.max_capacity ||
       errors.deal_discount ||
-      Object.keys(errors.menuItems).some((key) => errors.menuItems[key])
+      errors.deal_description ||
+      Object.keys(errors.menuItems).some((key) => errors.menuItems[key]) ||
+      Object.keys(errors.menuItemNames).some(
+        (key) => errors.menuItemNames[key]
+      ) ||
+      Object.keys(errors.menuItemDescriptions).some(
+        (key) => errors.menuItemDescriptions[key]
+      )
     ) {
+      hasErrors = true;
+    }
+
+    if (hasErrors) {
+      setErrors(newErrors);
       alert("Please fix all validation errors before submitting.");
       return;
     }
@@ -307,15 +586,19 @@ const CreateDealModal = ({ isOpen, onClose, onDealCreated }) => {
 
     const payload = {
       restaurant_id: restaurantId,
-      deal_title: formData.deal_title,
-      deal_start_date: formData.deal_start_date, // UTC ISO string
-      deal_expires_at: formData.deal_expires_at, // UTC ISO string
-      deal_expires_in: formData.deal_expires_in, // Daily duration in hours
+      deal_title: formData.deal_title.trim(),
+      deal_start_date: formData.deal_start_date,
+      deal_expires_at: formData.deal_expires_at,
+      deal_expires_in: formData.deal_expires_in,
       deal_status: formData.deal_status,
-      deal_description: formData.deal_description,
-      deal_price: Number(formData.deal_price), // Auto-calculated
+      deal_description: formData.deal_description.trim(),
+      deal_price: Number(formData.deal_price),
       deal_discount: Number(formData.deal_discount || 0),
-      deal_menu: validMenuItems,
+      deal_menu: validMenuItems.map((item) => ({
+        item_name: item.item_name.trim(),
+        item_price: Number(item.item_price),
+        item_description: item.item_description.trim(),
+      })),
       slot_duration: Number(formData.slot_duration),
       max_capacity: Number(formData.max_capacity),
     };
@@ -325,14 +608,13 @@ const CreateDealModal = ({ isOpen, onClose, onDealCreated }) => {
       console.log("Deal created:", response);
       alert("Deal created successfully!");
 
-      // ✅ Trigger refresh in parent component
       if (onDealCreated) {
         onDealCreated();
       }
 
       onClose();
 
-      // ✅ Reset form after successful creation
+      // Reset form
       setFormData({
         deal_title: "",
         deal_start_date: "",
@@ -350,10 +632,16 @@ const CreateDealModal = ({ isOpen, onClose, onDealCreated }) => {
       setEndDateTime("");
       setMenuItems([{ item_name: "", item_price: "", item_description: "" }]);
       setErrors({
+        deal_title: "",
+        deal_start_date: "",
+        deal_expires_at: "",
         slot_duration: "",
         max_capacity: "",
         deal_discount: "",
+        deal_description: "",
         menuItems: {},
+        menuItemNames: {},
+        menuItemDescriptions: {},
       });
     } catch (err) {
       console.error("Failed to create deal:", err);
@@ -402,9 +690,14 @@ const CreateDealModal = ({ isOpen, onClose, onDealCreated }) => {
               name="deal_title"
               value={formData.deal_title}
               onChange={handleInputChange}
-              placeholder="Enter deal title"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#E57272] focus:border-[#E57272]"
+              placeholder="Enter deal title (3-100 characters)"
+              className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#E57272] focus:border-[#E57272] ${
+                errors.deal_title ? "border-red-500" : "border-gray-300"
+              }`}
             />
+            {errors.deal_title && (
+              <p className="text-xs text-red-500 mt-1">{errors.deal_title}</p>
+            )}
           </div>
 
           {/* Start & End DateTime */}
@@ -417,8 +710,15 @@ const CreateDealModal = ({ isOpen, onClose, onDealCreated }) => {
                 type="datetime-local"
                 value={startDateTime}
                 onChange={handleStartDateChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#E57272] focus:border-[#E57272]"
+                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#E57272] focus:border-[#E57272] ${
+                  errors.deal_start_date ? "border-red-500" : "border-gray-300"
+                }`}
               />
+              {errors.deal_start_date && (
+                <p className="text-xs text-red-500 mt-1">
+                  {errors.deal_start_date}
+                </p>
+              )}
               <p className="text-xs text-gray-500 mt-1">
                 Your local time (converts to UTC)
               </p>
@@ -431,8 +731,15 @@ const CreateDealModal = ({ isOpen, onClose, onDealCreated }) => {
                 type="datetime-local"
                 value={endDateTime}
                 onChange={handleEndDateChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#E57272] focus:border-[#E57272]"
+                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#E57272] focus:border-[#E57272] ${
+                  errors.deal_expires_at ? "border-red-500" : "border-gray-300"
+                }`}
               />
+              {errors.deal_expires_at && (
+                <p className="text-xs text-red-500 mt-1">
+                  {errors.deal_expires_at}
+                </p>
+              )}
               <p className="text-xs text-gray-500 mt-1">
                 Your local time (converts to UTC)
               </p>
@@ -464,9 +771,7 @@ const CreateDealModal = ({ isOpen, onClose, onDealCreated }) => {
             </select>
           </div>
 
-          {/* ✅ REMOVED: Price field - now auto-calculated from menu items */}
-
-          {/* Slot Duration & Max Capacity (now 2 columns instead of 3) */}
+          {/* Slot Duration & Max Capacity */}
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -477,7 +782,7 @@ const CreateDealModal = ({ isOpen, onClose, onDealCreated }) => {
                 name="slot_duration"
                 value={formData.slot_duration}
                 onChange={handleInputChange}
-                placeholder="e.g., 30"
+                placeholder="15-1440 minutes"
                 className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#E57272] focus:border-[#E57272] ${
                   errors.slot_duration ? "border-red-500" : "border-gray-300"
                 }`}
@@ -497,7 +802,7 @@ const CreateDealModal = ({ isOpen, onClose, onDealCreated }) => {
                 name="max_capacity"
                 value={formData.max_capacity}
                 onChange={handleInputChange}
-                placeholder="e.g., 1"
+                placeholder="1-1000"
                 className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#E57272] focus:border-[#E57272] ${
                   errors.max_capacity ? "border-red-500" : "border-gray-300"
                 }`}
@@ -510,7 +815,7 @@ const CreateDealModal = ({ isOpen, onClose, onDealCreated }) => {
             </div>
           </div>
 
-          {/* Discount % */}
+          {/* Discount */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Discount Amount *
@@ -542,9 +847,16 @@ const CreateDealModal = ({ isOpen, onClose, onDealCreated }) => {
               value={formData.deal_description}
               onChange={handleInputChange}
               rows={3}
-              placeholder="Enter deal description"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#E57272] focus:border-[#E57272]"
+              placeholder="Enter deal description (10-500 characters)"
+              className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#E57272] focus:border-[#E57272] ${
+                errors.deal_description ? "border-red-500" : "border-gray-300"
+              }`}
             />
+            {errors.deal_description && (
+              <p className="text-xs text-red-500 mt-1">
+                {errors.deal_description}
+              </p>
+            )}
           </div>
 
           {/* Deal Menu Items */}
@@ -583,20 +895,33 @@ const CreateDealModal = ({ isOpen, onClose, onDealCreated }) => {
                 </div>
 
                 <div className="space-y-3">
-                  <input
-                    type="text"
-                    placeholder="Item Name"
-                    value={item.item_name}
-                    onChange={(e) =>
-                      handleMenuItemChange(index, "item_name", e.target.value)
-                    }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#E57272] focus:border-[#E57272]"
-                  />
+                  {/* Item Name */}
+                  <div>
+                    <input
+                      type="text"
+                      placeholder="Item Name (2-50 characters)"
+                      value={item.item_name}
+                      onChange={(e) =>
+                        handleMenuItemChange(index, "item_name", e.target.value)
+                      }
+                      className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#E57272] focus:border-[#E57272] ${
+                        errors.menuItemNames[index]
+                          ? "border-red-500"
+                          : "border-gray-300"
+                      }`}
+                    />
+                    {errors.menuItemNames[index] && (
+                      <p className="text-xs text-red-500 mt-1">
+                        {errors.menuItemNames[index]}
+                      </p>
+                    )}
+                  </div>
 
+                  {/* Item Price */}
                   <div>
                     <input
                       type="number"
-                      placeholder="Item Price"
+                      placeholder="Item Price (must be > 0)"
                       value={item.item_price}
                       onChange={(e) =>
                         handleMenuItemChange(
@@ -618,24 +943,36 @@ const CreateDealModal = ({ isOpen, onClose, onDealCreated }) => {
                     )}
                   </div>
 
-                  <textarea
-                    placeholder="Item Description"
-                    value={item.item_description}
-                    onChange={(e) =>
-                      handleMenuItemChange(
-                        index,
-                        "item_description",
-                        e.target.value
-                      )
-                    }
-                    rows={2}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#E57272] focus:border-[#E57272]"
-                  />
+                  {/* Item Description */}
+                  <div>
+                    <textarea
+                      placeholder="Item Description (5-200 characters)"
+                      value={item.item_description}
+                      onChange={(e) =>
+                        handleMenuItemChange(
+                          index,
+                          "item_description",
+                          e.target.value
+                        )
+                      }
+                      rows={2}
+                      className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#E57272] focus:border-[#E57272] ${
+                        errors.menuItemDescriptions[index]
+                          ? "border-red-500"
+                          : "border-gray-300"
+                      }`}
+                    />
+                    {errors.menuItemDescriptions[index] && (
+                      <p className="text-xs text-red-500 mt-1">
+                        {errors.menuItemDescriptions[index]}
+                      </p>
+                    )}
+                  </div>
                 </div>
               </div>
             ))}
 
-            {/* ✅ Display auto-calculated total price */}
+            {/* Display auto-calculated total price */}
             {formData.deal_price > 0 && (
               <div className="bg-green-50 border border-green-300 rounded-md p-3 mt-2">
                 <p className="text-sm font-medium text-green-700">
