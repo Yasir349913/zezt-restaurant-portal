@@ -31,6 +31,16 @@ const CreateDealModal = ({ isOpen, onClose, onDealCreated }) => {
   ]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // ✅ Error states
+  const [errors, setErrors] = useState({
+    deal_price: "",
+    slot_duration: "",
+    max_capacity: "",
+    deal_discount: "",
+    menuItems: {},
+    totalPrice: "",
+  });
+
   // Calculate deal_expires_in (daily duration in hours) whenever dates change
   useEffect(() => {
     if (startDateTime && endDateTime) {
@@ -63,6 +73,40 @@ const CreateDealModal = ({ isOpen, onClose, onDealCreated }) => {
       }
     }
   }, [startDateTime, endDateTime]);
+
+  // ✅ Validate total menu price whenever menu items or deal price changes
+  useEffect(() => {
+    if (formData.deal_price > 0) {
+      const validMenuItems = menuItems.filter(
+        (item) =>
+          item.item_name &&
+          item.item_price !== "" &&
+          item.item_price !== null &&
+          item.item_description
+      );
+
+      if (validMenuItems.length > 0) {
+        const totalMenuPrice = validMenuItems.reduce(
+          (sum, item) => sum + Number(item.item_price),
+          0
+        );
+
+        if (totalMenuPrice < formData.deal_price) {
+          setErrors((prev) => ({
+            ...prev,
+            totalPrice: `Total menu items price ($${totalMenuPrice.toFixed(
+              2
+            )}) must be at least $${formData.deal_price}`,
+          }));
+        } else {
+          setErrors((prev) => ({
+            ...prev,
+            totalPrice: "",
+          }));
+        }
+      }
+    }
+  }, [menuItems, formData.deal_price]);
 
   // Convert local datetime to UTC ISO string
   const convertToUTC = (localDateTime) => {
@@ -100,15 +144,24 @@ const CreateDealModal = ({ isOpen, onClose, onDealCreated }) => {
     ) {
       const numValue = Number(value);
 
+      // Clear previous error
+      setErrors((prev) => ({ ...prev, [name]: "" }));
+
       // Prevent negative values for all numeric fields
       if (numValue < 0) {
-        alert(`${name.replace("_", " ")} cannot be negative`);
+        setErrors((prev) => ({
+          ...prev,
+          [name]: "Cannot be negative",
+        }));
         return;
       }
 
       // Prevent zero for price, slot_duration, and max_capacity (discount can be 0)
       if (name !== "deal_discount" && numValue === 0) {
-        alert(`${name.replace("_", " ")} must be greater than 0`);
+        setErrors((prev) => ({
+          ...prev,
+          [name]: "Must be greater than 0",
+        }));
         return;
       }
 
@@ -124,11 +177,28 @@ const CreateDealModal = ({ isOpen, onClose, onDealCreated }) => {
 
     if (field === "item_price") {
       const numValue = Number(value);
+
+      // Clear previous error for this item
+      setErrors((prev) => ({
+        ...prev,
+        menuItems: {
+          ...prev.menuItems,
+          [index]: "",
+        },
+      }));
+
       // ✅ Prevent negative prices for menu items
       if (numValue < 0) {
-        alert("Item price cannot be negative");
+        setErrors((prev) => ({
+          ...prev,
+          menuItems: {
+            ...prev.menuItems,
+            [index]: "Item price cannot be negative",
+          },
+        }));
         return;
       }
+
       updatedItems[index][field] = numValue;
     } else {
       updatedItems[index][field] = value;
@@ -149,6 +219,16 @@ const CreateDealModal = ({ isOpen, onClose, onDealCreated }) => {
   const removeMenuItem = (index) => {
     if (menuItems.length > 1) {
       setMenuItems(menuItems.filter((_, i) => i !== index));
+
+      // Clear error for this item
+      setErrors((prev) => {
+        const newMenuErrors = { ...prev.menuItems };
+        delete newMenuErrors[index];
+        return {
+          ...prev,
+          menuItems: newMenuErrors,
+        };
+      });
     }
   };
 
@@ -174,25 +254,16 @@ const CreateDealModal = ({ isOpen, onClose, onDealCreated }) => {
       return;
     }
 
-    // ✅ Validate that price, slot_duration, max_capacity are greater than 0
-    if (formData.deal_price <= 0) {
-      alert("Deal price must be greater than 0");
-      return;
-    }
-
-    if (formData.slot_duration <= 0) {
-      alert("Slot duration must be greater than 0");
-      return;
-    }
-
-    if (formData.max_capacity <= 0) {
-      alert("Max capacity must be greater than 0");
-      return;
-    }
-
-    // ✅ Validate that discount is not negative
-    if (formData.deal_discount < 0) {
-      alert("Discount amount cannot be negative");
+    // ✅ Check if there are any validation errors
+    if (
+      errors.deal_price ||
+      errors.slot_duration ||
+      errors.max_capacity ||
+      errors.deal_discount ||
+      errors.totalPrice ||
+      Object.keys(errors.menuItems).some((key) => errors.menuItems[key])
+    ) {
+      alert("Please fix all validation errors before submitting.");
       return;
     }
 
@@ -207,19 +278,6 @@ const CreateDealModal = ({ isOpen, onClose, onDealCreated }) => {
 
     if (validMenuItems.length === 0) {
       alert("Please add at least one complete menu item.");
-      return;
-    }
-
-    // ✅ Validate that total menu items price is not less than deal price
-    const totalMenuPrice = validMenuItems.reduce(
-      (sum, item) => sum + Number(item.item_price),
-      0
-    );
-
-    if (totalMenuPrice < formData.deal_price) {
-      alert(
-        `Total menu items price ($${totalMenuPrice}) cannot be less than deal price ($${formData.deal_price})`
-      );
       return;
     }
 
@@ -277,6 +335,14 @@ const CreateDealModal = ({ isOpen, onClose, onDealCreated }) => {
       setStartDateTime("");
       setEndDateTime("");
       setMenuItems([{ item_name: "", item_price: 0, item_description: "" }]);
+      setErrors({
+        deal_price: "",
+        slot_duration: "",
+        max_capacity: "",
+        deal_discount: "",
+        menuItems: {},
+        totalPrice: "",
+      });
     } catch (err) {
       console.error("Failed to create deal:", err);
       alert(
@@ -397,10 +463,13 @@ const CreateDealModal = ({ isOpen, onClose, onDealCreated }) => {
                 name="deal_price"
                 value={formData.deal_price}
                 onChange={handleInputChange}
-                min="0.01"
-                step="0.01"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#E57272] focus:border-[#E57272]"
+                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#E57272] focus:border-[#E57272] ${
+                  errors.deal_price ? "border-red-500" : "border-gray-300"
+                }`}
               />
+              {errors.deal_price && (
+                <p className="text-xs text-red-500 mt-1">{errors.deal_price}</p>
+              )}
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -411,9 +480,15 @@ const CreateDealModal = ({ isOpen, onClose, onDealCreated }) => {
                 name="slot_duration"
                 value={formData.slot_duration}
                 onChange={handleInputChange}
-                min="1"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#E57272] focus:border-[#E57272]"
+                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#E57272] focus:border-[#E57272] ${
+                  errors.slot_duration ? "border-red-500" : "border-gray-300"
+                }`}
               />
+              {errors.slot_duration && (
+                <p className="text-xs text-red-500 mt-1">
+                  {errors.slot_duration}
+                </p>
+              )}
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -424,9 +499,15 @@ const CreateDealModal = ({ isOpen, onClose, onDealCreated }) => {
                 name="max_capacity"
                 value={formData.max_capacity}
                 onChange={handleInputChange}
-                min="1"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#E57272] focus:border-[#E57272]"
+                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#E57272] focus:border-[#E57272] ${
+                  errors.max_capacity ? "border-red-500" : "border-gray-300"
+                }`}
               />
+              {errors.max_capacity && (
+                <p className="text-xs text-red-500 mt-1">
+                  {errors.max_capacity}
+                </p>
+              )}
             </div>
           </div>
 
@@ -441,10 +522,15 @@ const CreateDealModal = ({ isOpen, onClose, onDealCreated }) => {
               value={formData.deal_discount}
               onChange={handleInputChange}
               placeholder="Discount percentage"
-              min="0"
-              step="0.01"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#E57272] focus:border-[#E57272]"
+              className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#E57272] focus:border-[#E57272] ${
+                errors.deal_discount ? "border-red-500" : "border-gray-300"
+              }`}
             />
+            {errors.deal_discount && (
+              <p className="text-xs text-red-500 mt-1">
+                {errors.deal_discount}
+              </p>
+            )}
           </div>
 
           {/* Description */}
@@ -508,17 +594,30 @@ const CreateDealModal = ({ isOpen, onClose, onDealCreated }) => {
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#E57272] focus:border-[#E57272]"
                   />
 
-                  <input
-                    type="number"
-                    placeholder="Item Price"
-                    value={item.item_price}
-                    onChange={(e) =>
-                      handleMenuItemChange(index, "item_price", e.target.value)
-                    }
-                    min="0"
-                    step="0.01"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#E57272] focus:border-[#E57272]"
-                  />
+                  <div>
+                    <input
+                      type="number"
+                      placeholder="Item Price"
+                      value={item.item_price}
+                      onChange={(e) =>
+                        handleMenuItemChange(
+                          index,
+                          "item_price",
+                          e.target.value
+                        )
+                      }
+                      className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#E57272] focus:border-[#E57272] ${
+                        errors.menuItems[index]
+                          ? "border-red-500"
+                          : "border-gray-300"
+                      }`}
+                    />
+                    {errors.menuItems[index] && (
+                      <p className="text-xs text-red-500 mt-1">
+                        {errors.menuItems[index]}
+                      </p>
+                    )}
+                  </div>
 
                   <textarea
                     placeholder="Item Description"
@@ -536,6 +635,13 @@ const CreateDealModal = ({ isOpen, onClose, onDealCreated }) => {
                 </div>
               </div>
             ))}
+
+            {/* ✅ Total Price Validation Message */}
+            {errors.totalPrice && (
+              <div className="bg-red-50 border border-red-300 rounded-md p-3 mt-2">
+                <p className="text-sm text-red-600">{errors.totalPrice}</p>
+              </div>
+            )}
           </div>
         </div>
 
