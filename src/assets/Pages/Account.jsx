@@ -314,7 +314,7 @@ export default function Account() {
             errorMessage={fieldErrors.password}
           />
 
-          <div className="text-xs text-gray-500 space-y-1">
+          {/* <div className="text-xs text-gray-500 space-y-1">
             <p className="font-medium">Password must contain:</p>
             <ul className="list-disc list-inside space-y-0.5 text-gray-600">
               <li>At least {VALIDATION.password.min} characters</li>
@@ -323,7 +323,7 @@ export default function Account() {
               <li>One number (0-9)</li>
               <li>One special character (!@#$%^&*)</li>
             </ul>
-          </div>
+          </div> */}
 
           <InputField
             label="Phone Number"
