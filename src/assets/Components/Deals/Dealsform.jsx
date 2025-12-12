@@ -74,7 +74,7 @@ const CreateDealModal = ({ isOpen, onClose, onDealCreated }) => {
     }
   }, [startDateTime, endDateTime]);
 
-  // ✅ Validate total menu price whenever menu items or deal price changes
+  // ✅ Validate total menu price whenever menu items or deal price changes - MUST BE EXACTLY EQUAL
   useEffect(() => {
     if (formData.deal_price && formData.deal_price !== "") {
       const validMenuItems = menuItems.filter(
@@ -91,13 +91,29 @@ const CreateDealModal = ({ isOpen, onClose, onDealCreated }) => {
           0
         );
 
-        if (totalMenuPrice < Number(formData.deal_price)) {
-          setErrors((prev) => ({
-            ...prev,
-            totalPrice: `Total menu items price ($${totalMenuPrice.toFixed(
-              2
-            )}) must be at least $${Number(formData.deal_price).toFixed(2)}`,
-          }));
+        const dealPrice = Number(formData.deal_price);
+
+        // ✅ Check if total is NOT equal to deal price
+        if (totalMenuPrice !== dealPrice) {
+          if (totalMenuPrice < dealPrice) {
+            setErrors((prev) => ({
+              ...prev,
+              totalPrice: `Total menu items price ($${totalMenuPrice.toFixed(
+                2
+              )}) is less than deal price ($${dealPrice.toFixed(
+                2
+              )}). They must be exactly equal.`,
+            }));
+          } else {
+            setErrors((prev) => ({
+              ...prev,
+              totalPrice: `Total menu items price ($${totalMenuPrice.toFixed(
+                2
+              )}) is greater than deal price ($${dealPrice.toFixed(
+                2
+              )}). They must be exactly equal.`,
+            }));
+          }
         } else {
           setErrors((prev) => ({
             ...prev,
