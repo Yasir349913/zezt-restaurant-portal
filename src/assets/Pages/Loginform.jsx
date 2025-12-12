@@ -1,5 +1,4 @@
 import React, { useState } from "react";
-import { FcGoogle } from "react-icons/fc";
 
 const Loginform = ({
   setShowForget,
@@ -12,10 +11,67 @@ const Loginform = ({
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [localErrors, setLocalErrors] = useState({});
+
+  const validateEmail = (value) => {
+    if (!value.trim()) return "Email is required";
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(value)) return "Please enter a valid email address";
+    return "";
+  };
+
+  const validatePassword = (value) => {
+    if (!value) return "Password is required";
+    if (value.length < 6) return "Password must be at least 6 characters";
+    return "";
+  };
+
+  const handleEmailChange = (e) => {
+    const value = e.target.value;
+    setEmail(value);
+    setLocalErrors((prev) => ({ ...prev, email: "" }));
+
+    // Real-time validation
+    const error = validateEmail(value);
+    if (error && value.length > 0) {
+      setLocalErrors((prev) => ({ ...prev, email: error }));
+    }
+  };
+
+  const handlePasswordChange = (e) => {
+    const value = e.target.value;
+    setPassword(value);
+    setLocalErrors((prev) => ({ ...prev, password: "" }));
+
+    // Real-time validation
+    const error = validatePassword(value);
+    if (error && value.length > 0) {
+      setLocalErrors((prev) => ({ ...prev, password: error }));
+    }
+  };
 
   const submit = (e) => {
     e.preventDefault();
+
+    // Validate before submit
+    const emailError = validateEmail(email);
+    const passwordError = validatePassword(password);
+
+    if (emailError || passwordError) {
+      setLocalErrors({
+        email: emailError,
+        password: passwordError,
+      });
+      return;
+    }
+
     onSubmit?.({ email, password });
+  };
+
+  // Combine local errors with field errors from parent
+  const displayErrors = {
+    email: fieldErrors?.email || localErrors.email,
+    password: fieldErrors?.password || localErrors.password,
   };
 
   return (
@@ -49,9 +105,15 @@ const Loginform = ({
           {/* Email */}
           <div>
             <label className="text-sm font-medium text-gray-700 mb-2 block">
-              Email
+              Email *
             </label>
-            <div className="relative flex items-center border border-gray-300 rounded-md px-3 py-3 focus-within:border-red-400 focus-within:ring-1 focus-within:ring-red-400 bg-white">
+            <div
+              className={`relative flex items-center border rounded-md px-3 py-3 focus-within:ring-1 bg-white ${
+                displayErrors.email
+                  ? "border-red-500 focus-within:border-red-500 focus-within:ring-red-200"
+                  : "border-gray-300 focus-within:border-red-400 focus-within:ring-red-400"
+              }`}
+            >
               <svg
                 className="w-4 h-4 text-gray-400 mr-3 flex-shrink-0"
                 fill="none"
@@ -68,15 +130,15 @@ const Loginform = ({
               <input
                 type="email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={handleEmailChange}
                 placeholder="johnmiles@example.com"
                 className="w-full outline-none text-sm sm:text-base text-gray-900 placeholder-gray-400 bg-transparent"
                 autoComplete="email"
               />
             </div>
-            {fieldErrors?.email && (
+            {displayErrors.email && (
               <p className="text-xs sm:text-sm text-red-600 mt-1">
-                {fieldErrors.email}
+                {displayErrors.email}
               </p>
             )}
           </div>
@@ -84,9 +146,15 @@ const Loginform = ({
           {/* Password */}
           <div>
             <label className="text-sm font-medium text-gray-700 mb-2 block">
-              Password
+              Password *
             </label>
-            <div className="relative flex items-center border border-gray-300 rounded-md px-3 py-3 focus-within:border-red-400 focus-within:ring-1 focus-within:ring-red-400 bg-white">
+            <div
+              className={`relative flex items-center border rounded-md px-3 py-3 focus-within:ring-1 bg-white ${
+                displayErrors.password
+                  ? "border-red-500 focus-within:border-red-500 focus-within:ring-red-200"
+                  : "border-gray-300 focus-within:border-red-400 focus-within:ring-red-400"
+              }`}
+            >
               <svg
                 className="w-4 h-4 text-gray-400 mr-3 flex-shrink-0"
                 fill="none"
@@ -103,7 +171,7 @@ const Loginform = ({
               <input
                 type={showPassword ? "text" : "password"}
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={handlePasswordChange}
                 placeholder="••••••••"
                 className="w-full outline-none text-sm sm:text-base text-gray-900 placeholder-gray-400 bg-transparent"
                 autoComplete="current-password"
@@ -150,9 +218,9 @@ const Loginform = ({
                 )}
               </button>
             </div>
-            {fieldErrors?.password && (
+            {displayErrors.password && (
               <p className="text-xs sm:text-sm text-red-600 mt-1">
-                {fieldErrors.password}
+                {displayErrors.password}
               </p>
             )}
           </div>

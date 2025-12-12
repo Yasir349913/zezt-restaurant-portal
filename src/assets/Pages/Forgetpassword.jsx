@@ -7,13 +7,36 @@ const Forgetpassword = ({ setShowForget }) => {
   const [submit, setSubmit] = useState(false);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState({ type: null, text: null });
+  const [emailError, setEmailError] = useState("");
+
+  const validateEmail = (value) => {
+    if (!value.trim()) return "Email is required";
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(value)) return "Please enter a valid email address";
+    return "";
+  };
+
+  const handleEmailChange = (e) => {
+    const value = e.target.value;
+    setEmail(value);
+    setEmailError("");
+    setMessage({ type: null, text: null });
+
+    // Real-time validation
+    const error = validateEmail(value);
+    if (error && value.length > 0) {
+      setEmailError(error);
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setMessage({ type: null, text: null });
 
-    if (!email) {
-      setMessage({ type: "error", text: "Please enter your email." });
+    const error = validateEmail(email);
+    if (error) {
+      setEmailError(error);
+      setMessage({ type: "error", text: error });
       return;
     }
 
@@ -24,7 +47,7 @@ const Forgetpassword = ({ setShowForget }) => {
       const okMsg =
         res?.message ||
         res?.status ||
-        "We’ve sent a verification/OTP to your email (if it exists).";
+        "We've sent a verification/OTP to your email (if it exists).";
 
       setMessage({ type: "success", text: okMsg });
       setSubmit(true);
@@ -75,10 +98,16 @@ const Forgetpassword = ({ setShowForget }) => {
               htmlFor="email"
               className="text-sm font-medium mb-2 block text-gray-700"
             >
-              Email
+              Email *
             </label>
 
-            <div className="flex items-center border rounded-md px-3 py-3 focus-within:border-red-400 focus-within:ring-1 focus-within:ring-red-400">
+            <div
+              className={`flex items-center border rounded-md px-3 py-3 focus-within:ring-1 ${
+                emailError
+                  ? "border-red-500 focus-within:border-red-500 focus-within:ring-red-200"
+                  : "border-gray-300 focus-within:border-red-400 focus-within:ring-red-400"
+              }`}
+            >
               <svg
                 className="w-4 h-4 text-gray-400 mr-3 flex-shrink-0"
                 fill="none"
@@ -99,11 +128,15 @@ const Forgetpassword = ({ setShowForget }) => {
                 placeholder="johnmiles@example.com"
                 className="outline-none w-full text-sm bg-transparent text-gray-900 placeholder-gray-400"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={handleEmailChange}
                 autoComplete="email"
                 required
               />
             </div>
+
+            {emailError && (
+              <p className="mt-1 text-xs text-red-600">{emailError}</p>
+            )}
           </div>
 
           {/* Buttons */}
