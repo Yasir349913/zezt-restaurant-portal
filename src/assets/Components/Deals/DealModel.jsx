@@ -115,6 +115,16 @@ const DealModal = ({ isOpen, onClose, initialData = null, onSaved }) => {
       return "Price must be greater than 0";
     }
 
+    // ✅ Check for invalid leading zeros (like 01, 012, etc.)
+    const strValue = value.toString();
+    if (
+      strValue.length > 1 &&
+      strValue.startsWith("0") &&
+      strValue[1] !== "."
+    ) {
+      return "Invalid format (remove leading zero)";
+    }
+
     // Check for valid decimal format (max 2 decimal places)
     if (!/^\d+(\.\d{1,2})?$/.test(value.toString())) {
       return "Price can have maximum 2 decimal places";
@@ -141,6 +151,24 @@ const DealModal = ({ isOpen, onClose, initialData = null, onSaved }) => {
 
     if (numValue < 0) {
       return "Discount cannot be negative";
+    }
+
+    // ✅ Allow exactly 0, but prevent 01, 02, etc.
+    const strValue = value.toString();
+    if (numValue === 0) {
+      // Allow "0" or "0.0" or "0.00" but not "01" or "001"
+      if (strValue.length > 1 && !strValue.includes(".")) {
+        return "Invalid format (use 0, not 01)";
+      }
+    } else {
+      // For non-zero values, check for invalid leading zeros
+      if (
+        strValue.length > 1 &&
+        strValue.startsWith("0") &&
+        strValue[1] !== "."
+      ) {
+        return "Invalid format (remove leading zero)";
+      }
     }
 
     // Check for valid decimal format (max 2 decimal places)
@@ -208,6 +236,16 @@ const DealModal = ({ isOpen, onClose, initialData = null, onSaved }) => {
       return "Item price must be greater than 0";
     }
 
+    // ✅ Check for invalid leading zeros (like 01, 012, etc.)
+    const strValue = value.toString();
+    if (
+      strValue.length > 1 &&
+      strValue.startsWith("0") &&
+      strValue[1] !== "."
+    ) {
+      return "Invalid format (remove leading zero)";
+    }
+
     // Check for valid decimal format (max 2 decimal places)
     if (!/^\d+(\.\d{1,2})?$/.test(value.toString())) {
       return "Item price can have maximum 2 decimal places";
@@ -256,6 +294,66 @@ const DealModal = ({ isOpen, onClose, initialData = null, onSaved }) => {
     }
 
     return null; // No error
+  };
+
+  // ✅ Prevent negative input and invalid leading zeros
+  const handleNumberKeyDown = (e, fieldName) => {
+    // Prevent minus sign
+    if (e.key === "-" || e.key === "e" || e.key === "E") {
+      e.preventDefault();
+      return;
+    }
+
+    const currentValue = e.target.value;
+    const cursorPosition = e.target.selectionStart;
+
+    // ✅ Special handling for discount field (can be exactly 0)
+    if (fieldName === "deal_discount") {
+      // If current value is "0" and user tries to type another digit (not decimal point)
+      if (currentValue === "0" && cursorPosition === 1) {
+        if (e.key >= "0" && e.key <= "9") {
+          e.preventDefault(); // Don't allow 01, 02, etc.
+          return;
+        }
+      }
+    }
+
+    // ✅ For price fields - prevent leading zero followed by digits
+    if (fieldName === "deal_price") {
+      // If current value is "0" at start and user tries to type another digit
+      if (currentValue === "0" && cursorPosition === 1) {
+        if (e.key >= "0" && e.key <= "9") {
+          e.preventDefault(); // Don't allow 01, 02, 03, etc.
+          return;
+        }
+      }
+
+      // Prevent typing "0" as first character if it's followed by a digit
+      if (currentValue === "" && e.key === "0") {
+        // Allow it, but we'll check on next keypress
+        return;
+      }
+    }
+  };
+
+  // ✅ Prevent negative input for menu item prices
+  const handleMenuItemPriceKeyDown = (e) => {
+    // Prevent minus sign and scientific notation
+    if (e.key === "-" || e.key === "e" || e.key === "E") {
+      e.preventDefault();
+      return;
+    }
+
+    const currentValue = e.target.value;
+    const cursorPosition = e.target.selectionStart;
+
+    // Prevent leading zero followed by digits (but allow 0.5)
+    if (currentValue === "0" && cursorPosition === 1) {
+      if (e.key >= "0" && e.key <= "9") {
+        e.preventDefault();
+        return;
+      }
+    }
   };
 
   useEffect(() => {
@@ -888,6 +986,7 @@ const DealModal = ({ isOpen, onClose, initialData = null, onSaved }) => {
                   name="deal_price"
                   value={formData.deal_price}
                   onChange={handleInputChange}
+                  onKeyDown={(e) => handleNumberKeyDown(e, "deal_price")}
                   placeholder="e.g. 25.99"
                   className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                     errors.deal_price ? "border-red-500" : "border-gray-300"
@@ -910,6 +1009,7 @@ const DealModal = ({ isOpen, onClose, initialData = null, onSaved }) => {
                   name="deal_discount"
                   value={formData.deal_discount}
                   onChange={handleInputChange}
+                  onKeyDown={(e) => handleNumberKeyDown(e, "deal_discount")}
                   placeholder="e.g. 5.00 (optional)"
                   className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                     errors.deal_discount ? "border-red-500" : "border-gray-300"
@@ -1117,6 +1217,7 @@ const DealModal = ({ isOpen, onClose, initialData = null, onSaved }) => {
                             e.target.value
                           )
                         }
+                        onKeyDown={handleMenuItemPriceKeyDown}
                         className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                           errors.menuItems?.[index]
                             ? "border-red-500"
