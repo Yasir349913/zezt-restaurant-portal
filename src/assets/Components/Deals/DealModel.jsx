@@ -45,7 +45,6 @@ const DealModal = ({ isOpen, onClose, initialData = null, onSaved }) => {
   const [errors, setErrors] = useState({
     deal_title: "",
     deal_description: "",
-    deal_price: "",
     deal_discount: "",
     deal_start_date: "",
     deal_expires_at: "",
@@ -93,47 +92,6 @@ const DealModal = ({ isOpen, onClose, initialData = null, onSaved }) => {
     if (!/^[a-zA-Z0-9\s,.'&!%\-()]+$/.test(value)) {
       return "Description contains invalid characters";
     }
-    return "";
-  };
-
-  const validatePrice = (value) => {
-    if (value === "" || value === null || value === undefined) {
-      return "Price is required";
-    }
-
-    const numValue = Number(value);
-
-    if (isNaN(numValue)) {
-      return "Price must be a valid number";
-    }
-
-    if (numValue < 0) {
-      return "Price cannot be negative";
-    }
-
-    if (numValue === 0) {
-      return "Price must be greater than 0";
-    }
-
-    // ✅ Check for invalid leading zeros (like 01, 012, etc.)
-    const strValue = value.toString();
-    if (
-      strValue.length > 1 &&
-      strValue.startsWith("0") &&
-      strValue[1] !== "."
-    ) {
-      return "Invalid format (remove leading zero)";
-    }
-
-    // Check for valid decimal format (max 2 decimal places)
-    if (!/^\d+(\.\d{1,2})?$/.test(value.toString())) {
-      return "Price can have maximum 2 decimal places";
-    }
-
-    if (numValue > 999999) {
-      return "Price seems too high";
-    }
-
     return "";
   };
 
@@ -296,7 +254,7 @@ const DealModal = ({ isOpen, onClose, initialData = null, onSaved }) => {
     return null; // No error
   };
 
-  // ✅ Prevent negative input and invalid leading zeros
+  // ✅ Prevent negative input and invalid leading zeros for discount field
   const handleNumberKeyDown = (e, fieldName) => {
     // Prevent minus sign
     if (e.key === "-" || e.key === "e" || e.key === "E") {
@@ -315,23 +273,6 @@ const DealModal = ({ isOpen, onClose, initialData = null, onSaved }) => {
           e.preventDefault(); // Don't allow 01, 02, etc.
           return;
         }
-      }
-    }
-
-    // ✅ For price fields - prevent leading zero followed by digits
-    if (fieldName === "deal_price") {
-      // If current value is "0" at start and user tries to type another digit
-      if (currentValue === "0" && cursorPosition === 1) {
-        if (e.key >= "0" && e.key <= "9") {
-          e.preventDefault(); // Don't allow 01, 02, 03, etc.
-          return;
-        }
-      }
-
-      // Prevent typing "0" as first character if it's followed by a digit
-      if (currentValue === "" && e.key === "0") {
-        // Allow it, but we'll check on next keypress
-        return;
       }
     }
   };
@@ -415,7 +356,6 @@ const DealModal = ({ isOpen, onClose, initialData = null, onSaved }) => {
     setErrors({
       deal_title: "",
       deal_description: "",
-      deal_price: "",
       deal_discount: "",
       deal_start_date: "",
       deal_expires_at: "",
@@ -456,6 +396,34 @@ const DealModal = ({ isOpen, onClose, initialData = null, onSaved }) => {
       }
     }
   }, [startDateTime, endDateTime]);
+
+  // ✅ AUTO-CALCULATE deal_price from menu items
+  useEffect(() => {
+    const validMenuItems = menuItems.filter(
+      (item) =>
+        item.item_name &&
+        item.item_price !== "" &&
+        item.item_price !== null &&
+        item.item_description
+    );
+
+    if (validMenuItems.length > 0) {
+      const totalPrice = validMenuItems.reduce(
+        (sum, item) => sum + Number(item.item_price || 0),
+        0
+      );
+
+      setFormData((prev) => ({
+        ...prev,
+        deal_price: totalPrice,
+      }));
+    } else {
+      setFormData((prev) => ({
+        ...prev,
+        deal_price: 0,
+      }));
+    }
+  }, [menuItems]);
 
   const convertToUTC = (localDateTime) => {
     if (!localDateTime) return "";
@@ -552,14 +520,6 @@ const DealModal = ({ isOpen, onClose, initialData = null, onSaved }) => {
       setFormData((prev) => ({ ...prev, [name]: value }));
       const error = validateDescription(value);
       setErrors((prev) => ({ ...prev, deal_description: error }));
-      return;
-    }
-
-    // ✅ Handle price validation
-    if (name === "deal_price") {
-      setFormData((prev) => ({ ...prev, [name]: value }));
-      const error = validatePrice(value);
-      setErrors((prev) => ({ ...prev, deal_price: error }));
       return;
     }
 
@@ -754,13 +714,6 @@ const DealModal = ({ isOpen, onClose, initialData = null, onSaved }) => {
       hasErrors = true;
     }
 
-    // Validate price
-    const priceError = validatePrice(formData.deal_price);
-    if (priceError) {
-      newErrors.deal_price = priceError;
-      hasErrors = true;
-    }
-
     // Validate discount (optional)
     if (formData.deal_discount) {
       const discountError = validateDiscount(formData.deal_discount);
@@ -793,7 +746,6 @@ const DealModal = ({ isOpen, onClose, initialData = null, onSaved }) => {
     if (
       errors.deal_title ||
       errors.deal_description ||
-      errors.deal_price ||
       errors.deal_discount ||
       errors.deal_start_date ||
       errors.deal_expires_at ||
@@ -821,6 +773,14 @@ const DealModal = ({ isOpen, onClose, initialData = null, onSaved }) => {
 
     if (validMenuItems.length === 0) {
       alert("Please add at least one complete menu item.");
+      return;
+    }
+
+    // ✅ Check auto-calculated deal price
+    if (formData.deal_price <= 0) {
+      alert(
+        "Deal price must be greater than 0. Please add valid menu items with prices."
+      );
       return;
     }
 
@@ -974,54 +934,29 @@ const DealModal = ({ isOpen, onClose, initialData = null, onSaved }) => {
               )}
             </div>
 
-            {/* Price & Discount */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Deal Price * (£)
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  name="deal_price"
-                  value={formData.deal_price}
-                  onChange={handleInputChange}
-                  onKeyDown={(e) => handleNumberKeyDown(e, "deal_price")}
-                  placeholder="e.g. 25.99"
-                  className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                    errors.deal_price ? "border-red-500" : "border-gray-300"
-                  }`}
-                />
-                {errors.deal_price && (
-                  <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
-                    <AlertCircle className="w-3 h-3" />
-                    {errors.deal_price}
-                  </p>
-                )}
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Discount (£) - Optional
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  name="deal_discount"
-                  value={formData.deal_discount}
-                  onChange={handleInputChange}
-                  onKeyDown={(e) => handleNumberKeyDown(e, "deal_discount")}
-                  placeholder="e.g. 5.00 (optional)"
-                  className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                    errors.deal_discount ? "border-red-500" : "border-gray-300"
-                  }`}
-                />
-                {errors.deal_discount && (
-                  <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
-                    <AlertCircle className="w-3 h-3" />
-                    {errors.deal_discount}
-                  </p>
-                )}
-              </div>
+            {/* Discount */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Discount (£) - Optional
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                name="deal_discount"
+                value={formData.deal_discount}
+                onChange={handleInputChange}
+                onKeyDown={(e) => handleNumberKeyDown(e, "deal_discount")}
+                placeholder="e.g. 5.00 (optional)"
+                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  errors.deal_discount ? "border-red-500" : "border-gray-300"
+                }`}
+              />
+              {errors.deal_discount && (
+                <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+                  <AlertCircle className="w-3 h-3" />
+                  {errors.deal_discount}
+                </p>
+              )}
             </div>
           </div>
 
@@ -1262,6 +1197,25 @@ const DealModal = ({ isOpen, onClose, initialData = null, onSaved }) => {
                 </div>
               ))}
             </div>
+
+            {/* ✅ Display auto-calculated total deal price */}
+            {formData.deal_price > 0 && (
+              <div className="bg-green-50 border border-green-300 rounded-md p-4 mt-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-green-800">
+                      Total Deal Price (Auto-calculated)
+                    </p>
+                    <p className="text-xs text-green-600 mt-1">
+                      Sum of all menu item prices
+                    </p>
+                  </div>
+                  <p className="text-2xl font-bold text-green-700">
+                    £{formData.deal_price.toFixed(2)}
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Additional Info for Bookings */}
