@@ -18,7 +18,6 @@ const DealModal = ({ isOpen, onClose, initialData = null, onSaved }) => {
 
   // Check if deal has bookings (affects what can be edited)
   const hasBookings = isEditMode && initialData?.bookingCount > 0;
-  const maxBooked = initialData?.maxBooked || 0; // Highest booked in any slot
 
   // ✅ Store original data for comparison
   const [originalData, setOriginalData] = useState(null);
@@ -28,31 +27,235 @@ const DealModal = ({ isOpen, onClose, initialData = null, onSaved }) => {
     deal_start_date: "",
     deal_expires_at: "",
     deal_status: "active",
-    deal_price: 0,
-    slot_duration: 30,
-    max_capacity: 1,
+    deal_price: "",
     deal_description: "",
-    deal_discount: 0,
+    deal_discount: "",
     deal_menu: [],
-    redemption: 0,
     deal_expires_in: 0,
   });
 
   const [startDateTime, setStartDateTime] = useState("");
   const [endDateTime, setEndDateTime] = useState("");
   const [menuItems, setMenuItems] = useState([
-    { item_name: "", item_price: 0, item_description: "" },
+    { item_name: "", item_price: "", item_description: "" },
   ]);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [errors, setErrors] = useState({});
-  const [showInfo, setShowInfo] = useState(false);
+
+  // ✅ Comprehensive error states
+  const [errors, setErrors] = useState({
+    deal_title: "",
+    deal_description: "",
+    deal_price: "",
+    deal_discount: "",
+    deal_start_date: "",
+    deal_expires_at: "",
+    menuItems: {}, // For item prices
+    menuItemNames: {}, // For item names
+    menuItemDescriptions: {}, // For item descriptions
+  });
 
   // Protected fields (cannot change if bookings exist)
   const protectedFields = {
     deal_start_date: "Start Date & Time",
     deal_expires_at: "End Date & Time",
     deal_expires_in: "Daily Duration",
-    slot_duration: "Slot Duration",
+  };
+
+  // ✅ Validation functions
+  const validateDealTitle = (value) => {
+    if (!value || value.trim() === "") {
+      return "Deal title is required";
+    }
+    if (value.trim().length < 5) {
+      return "Deal title must be at least 5 characters";
+    }
+    if (value.length > 100) {
+      return "Deal title must not exceed 100 characters";
+    }
+    // Allow letters, numbers, spaces, and common punctuation
+    if (!/^[a-zA-Z0-9\s,.'&!%\-()]+$/.test(value)) {
+      return "Deal title contains invalid characters";
+    }
+    return "";
+  };
+
+  const validateDescription = (value) => {
+    if (!value || value.trim() === "") {
+      return "Description is required";
+    }
+    if (value.trim().length < 5) {
+      return "Description must be at least 5 characters";
+    }
+    if (value.length > 500) {
+      return "Description must not exceed 500 characters";
+    }
+    // Allow letters, numbers, spaces, and common punctuation
+    if (!/^[a-zA-Z0-9\s,.'&!%\-()]+$/.test(value)) {
+      return "Description contains invalid characters";
+    }
+    return "";
+  };
+
+  const validatePrice = (value) => {
+    if (value === "" || value === null || value === undefined) {
+      return "Price is required";
+    }
+    
+    const numValue = Number(value);
+    
+    if (isNaN(numValue)) {
+      return "Price must be a valid number";
+    }
+    
+    if (numValue < 0) {
+      return "Price cannot be negative";
+    }
+    
+    if (numValue === 0) {
+      return "Price must be greater than 0";
+    }
+
+    // Check for valid decimal format (max 2 decimal places)
+    if (!/^\d+(\.\d{1,2})?$/.test(value.toString())) {
+      return "Price can have maximum 2 decimal places";
+    }
+
+    if (numValue > 999999) {
+      return "Price seems too high";
+    }
+    
+    return "";
+  };
+
+  const validateDiscount = (value) => {
+    // Discount is optional, can be 0
+    if (value === "" || value === null || value === undefined) {
+      return ""; // No error - discount is optional
+    }
+    
+    const numValue = Number(value);
+    
+    if (isNaN(numValue)) {
+      return "Discount must be a valid number";
+    }
+    
+    if (numValue < 0) {
+      return "Discount cannot be negative";
+    }
+
+    // Check for valid decimal format (max 2 decimal places)
+    if (!/^\d+(\.\d{1,2})?$/.test(value.toString())) {
+      return "Discount can have maximum 2 decimal places";
+    }
+
+    if (numValue > 100000) {
+      return "Discount seems too high";
+    }
+    
+    return "";
+  };
+
+  const validateMenuItemName = (value) => {
+    if (!value || value.trim() === "") {
+      return "Item name is required";
+    }
+    if (value.trim().length < 5) {
+      return "Item name must be at least 5 characters";
+    }
+    if (value.length > 100) {
+      return "Item name must not exceed 100 characters";
+    }
+    // Allow letters, numbers, spaces, and common punctuation
+    if (!/^[a-zA-Z0-9\s,.'&!%\-()]+$/.test(value)) {
+      return "Item name contains invalid characters";
+    }
+    return "";
+  };
+
+  const validateMenuItemDescription = (value) => {
+    if (!value || value.trim() === "") {
+      return "Item description is required";
+    }
+    if (value.trim().length < 5) {
+      return "Item description must be at least 5 characters";
+    }
+    if (value.length > 300) {
+      return "Item description must not exceed 300 characters";
+    }
+    // Allow letters, numbers, spaces, and common punctuation
+    if (!/^[a-zA-Z0-9\s,.'&!%\-()]+$/.test(value)) {
+      return "Item description contains invalid characters";
+    }
+    return "";
+  };
+
+  const validateMenuItemPrice = (value) => {
+    if (value === "" || value === null || value === undefined) {
+      return "Item price is required";
+    }
+    
+    const numValue = Number(value);
+    
+    if (isNaN(numValue)) {
+      return "Item price must be a valid number";
+    }
+    
+    if (numValue < 0) {
+      return "Item price cannot be negative";
+    }
+    
+    if (numValue === 0) {
+      return "Item price must be greater than 0";
+    }
+
+    // Check for valid decimal format (max 2 decimal places)
+    if (!/^\d+(\.\d{1,2})?$/.test(value.toString())) {
+      return "Item price can have maximum 2 decimal places";
+    }
+
+    if (numValue > 999999) {
+      return "Item price seems too high";
+    }
+    
+    return "";
+  };
+
+  // ✅ Validate date/time - same date allowed, but end time must be after start time
+  const validateDateTime = (startDT, endDT) => {
+    if (!startDT || !endDT) return null;
+
+    const startDate = new Date(startDT);
+    const endDate = new Date(endDT);
+
+    // Get date parts (without time)
+    const startDateOnly = new Date(
+      startDate.getFullYear(),
+      startDate.getMonth(),
+      startDate.getDate()
+    );
+    const endDateOnly = new Date(
+      endDate.getFullYear(),
+      endDate.getMonth(),
+      endDate.getDate()
+    );
+
+    // Check if end date is before start date
+    if (endDateOnly < startDateOnly) {
+      return "End date cannot be before start date";
+    }
+
+    // If same date, check times
+    if (startDateOnly.getTime() === endDateOnly.getTime()) {
+      // Same date - compare times
+      const startTime = startDate.getHours() * 60 + startDate.getMinutes();
+      const endTime = endDate.getHours() * 60 + endDate.getMinutes();
+
+      if (endTime <= startTime) {
+        return "End time must be after start time";
+      }
+    }
+
+    return null; // No error
   };
 
   useEffect(() => {
@@ -79,17 +282,13 @@ const DealModal = ({ isOpen, onClose, initialData = null, onSaved }) => {
         deal_start_date: initialData.deal_start_date || "",
         deal_expires_at: initialData.deal_expires_at || "",
         deal_status: initialData.deal_status || "active",
-        deal_price: initialData.deal_price || 0,
-        slot_duration: initialData.slot_duration || 30,
-        max_capacity: initialData.max_capacity || 1,
+        deal_price: initialData.deal_price || "",
         deal_description: initialData.deal_description || "",
-        deal_discount: initialData.deal_discount || 0,
-        redemption: initialData.redemption || 0,
+        deal_discount: initialData.deal_discount || "",
         deal_expires_in: initialData.deal_expires_in || 0,
       };
 
       setFormData(loadedData);
-      // ✅ Store original data for comparison
       setOriginalData(loadedData);
 
       if (initialData.deal_menu && initialData.deal_menu.length > 0) {
@@ -106,23 +305,30 @@ const DealModal = ({ isOpen, onClose, initialData = null, onSaved }) => {
       deal_start_date: "",
       deal_expires_at: "",
       deal_status: "active",
-      deal_price: 0,
-      slot_duration: 30,
-      max_capacity: 1,
+      deal_price: "",
       deal_description: "",
-      deal_discount: 0,
+      deal_discount: "",
       deal_menu: [],
-      redemption: 0,
       deal_expires_in: 0,
     });
     setStartDateTime("");
     setEndDateTime("");
-    setMenuItems([{ item_name: "", item_price: 0, item_description: "" }]);
-    setErrors({});
-    setShowInfo(false);
+    setMenuItems([{ item_name: "", item_price: "", item_description: "" }]);
+    setErrors({
+      deal_title: "",
+      deal_description: "",
+      deal_price: "",
+      deal_discount: "",
+      deal_start_date: "",
+      deal_expires_at: "",
+      menuItems: {},
+      menuItemNames: {},
+      menuItemDescriptions: {},
+    });
     setOriginalData(null);
   };
 
+  // Calculate daily duration whenever dates change
   useEffect(() => {
     if (startDateTime && endDateTime) {
       const start = new Date(startDateTime);
@@ -160,47 +366,110 @@ const DealModal = ({ isOpen, onClose, initialData = null, onSaved }) => {
   };
 
   const handleStartDateChange = (e) => {
-    if (hasBookings) return; // Prevent change if bookings exist
+    if (hasBookings) return;
     const value = e.target.value;
     setStartDateTime(value);
     setFormData((prev) => ({
       ...prev,
       deal_start_date: convertToUTC(value),
     }));
+
+    // ✅ Validate start date
+    if (!value) {
+      setErrors((prev) => ({
+        ...prev,
+        deal_start_date: "Start date & time is required",
+      }));
+    } else {
+      const startDate = new Date(value);
+      const now = new Date();
+
+      if (startDate < now) {
+        setErrors((prev) => ({
+          ...prev,
+          deal_start_date: "Start date cannot be in the past",
+        }));
+      } else {
+        setErrors((prev) => ({ ...prev, deal_start_date: "" }));
+
+        // Check against end date if it exists
+        if (endDateTime) {
+          const dateTimeError = validateDateTime(value, endDateTime);
+          if (dateTimeError) {
+            setErrors((prev) => ({
+              ...prev,
+              deal_expires_at: dateTimeError,
+            }));
+          } else {
+            setErrors((prev) => ({ ...prev, deal_expires_at: "" }));
+          }
+        }
+      }
+    }
   };
 
   const handleEndDateChange = (e) => {
-    if (hasBookings) return; // Prevent change if bookings exist
+    if (hasBookings) return;
     const value = e.target.value;
     setEndDateTime(value);
     setFormData((prev) => ({
       ...prev,
       deal_expires_at: convertToUTC(value),
     }));
+
+    // ✅ Validate end date
+    if (!value) {
+      setErrors((prev) => ({
+        ...prev,
+        deal_expires_at: "End date & time is required",
+      }));
+    } else if (startDateTime) {
+      const dateTimeError = validateDateTime(startDateTime, value);
+      if (dateTimeError) {
+        setErrors((prev) => ({
+          ...prev,
+          deal_expires_at: dateTimeError,
+        }));
+      } else {
+        setErrors((prev) => ({ ...prev, deal_expires_at: "" }));
+      }
+    } else {
+      setErrors((prev) => ({ ...prev, deal_expires_at: "" }));
+    }
   };
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
 
-    // Validate capacity reduction if bookings exist
-    if (name === "max_capacity" && hasBookings) {
-      const newCapacity = parseInt(value);
-      if (newCapacity < maxBooked) {
-        setErrors((prev) => ({
-          ...prev,
-          max_capacity: `Cannot reduce below ${maxBooked} (highest booked in any slot)`,
-        }));
-      } else {
-        setErrors((prev) => {
-          const newErrors = { ...prev };
-          delete newErrors.max_capacity;
-          return newErrors;
-        });
-      }
+    // ✅ Handle deal title validation
+    if (name === "deal_title") {
+      setFormData((prev) => ({ ...prev, [name]: value }));
+      const error = validateDealTitle(value);
+      setErrors((prev) => ({ ...prev, deal_title: error }));
+      return;
     }
 
-    // Prevent slot_duration change if bookings exist
-    if (name === "slot_duration" && hasBookings) {
+    // ✅ Handle description validation
+    if (name === "deal_description") {
+      setFormData((prev) => ({ ...prev, [name]: value }));
+      const error = validateDescription(value);
+      setErrors((prev) => ({ ...prev, deal_description: error }));
+      return;
+    }
+
+    // ✅ Handle price validation
+    if (name === "deal_price") {
+      setFormData((prev) => ({ ...prev, [name]: value }));
+      const error = validatePrice(value);
+      setErrors((prev) => ({ ...prev, deal_price: error }));
+      return;
+    }
+
+    // ✅ Handle discount validation
+    if (name === "deal_discount") {
+      setFormData((prev) => ({ ...prev, [name]: value }));
+      const error = validateDiscount(value);
+      setErrors((prev) => ({ ...prev, deal_discount: error }));
       return;
     }
 
@@ -209,57 +478,121 @@ const DealModal = ({ isOpen, onClose, initialData = null, onSaved }) => {
 
   const handleMenuItemChange = (index, field, value) => {
     const updatedItems = [...menuItems];
-    updatedItems[index][field] = field === "item_price" ? Number(value) : value;
+
+    if (field === "item_name") {
+      updatedItems[index][field] = value;
+      setMenuItems(updatedItems);
+
+      const error = validateMenuItemName(value);
+      setErrors((prev) => ({
+        ...prev,
+        menuItemNames: {
+          ...prev.menuItemNames,
+          [index]: error,
+        },
+      }));
+      return;
+    }
+
+    if (field === "item_description") {
+      updatedItems[index][field] = value;
+      setMenuItems(updatedItems);
+
+      const error = validateMenuItemDescription(value);
+      setErrors((prev) => ({
+        ...prev,
+        menuItemDescriptions: {
+          ...prev.menuItemDescriptions,
+          [index]: error,
+        },
+      }));
+      return;
+    }
+
+    if (field === "item_price") {
+      updatedItems[index][field] = value;
+      setMenuItems(updatedItems);
+
+      const error = validateMenuItemPrice(value);
+      setErrors((prev) => ({
+        ...prev,
+        menuItems: {
+          ...prev.menuItems,
+          [index]: error,
+        },
+      }));
+      return;
+    }
+
+    updatedItems[index][field] = value;
     setMenuItems(updatedItems);
   };
 
   const addMenuItem = () => {
     setMenuItems([
       ...menuItems,
-      { item_name: "", item_price: 0, item_description: "" },
+      { item_name: "", item_price: "", item_description: "" },
     ]);
   };
 
   const removeMenuItem = (index) => {
     if (menuItems.length > 1) {
       setMenuItems(menuItems.filter((_, i) => i !== index));
+
+      // Clear errors for removed item
+      setErrors((prev) => {
+        const newMenuErrors = { ...prev.menuItems };
+        const newNameErrors = { ...prev.menuItemNames };
+        const newDescErrors = { ...prev.menuItemDescriptions };
+
+        delete newMenuErrors[index];
+        delete newNameErrors[index];
+        delete newDescErrors[index];
+
+        return {
+          ...prev,
+          menuItems: newMenuErrors,
+          menuItemNames: newNameErrors,
+          menuItemDescriptions: newDescErrors,
+        };
+      });
     }
   };
 
-  // ✅ NEW: Get only changed fields for update
   const getChangedFields = () => {
+    const validMenuItems = menuItems.filter(
+      (item) =>
+        item.item_name &&
+        item.item_price !== "" &&
+        item.item_price !== null &&
+        item.item_description
+    );
+
     if (!isEditMode || !originalData) {
       // Create mode: return all fields
-      const validMenuItems = menuItems.filter(
-        (item) => item.item_name && item.item_price && item.item_description
-      );
-
       return {
         restaurant_id: restaurantId,
-        deal_title: formData.deal_title,
+        deal_title: formData.deal_title.trim(),
         deal_start_date: formData.deal_start_date,
         deal_expires_at: formData.deal_expires_at,
         deal_expires_in: formData.deal_expires_in,
         deal_status: formData.deal_status,
-        redemption: Number(formData.redemption),
-        deal_description: formData.deal_description,
+        deal_description: formData.deal_description.trim(),
         deal_price: Number(formData.deal_price),
-        deal_discount: Number(formData.deal_discount),
-        deal_menu: validMenuItems,
-        slot_duration: Number(formData.slot_duration),
-        max_capacity: Number(formData.max_capacity),
+        deal_discount: Number(formData.deal_discount || 0),
+        deal_menu: validMenuItems.map((item) => ({
+          item_name: item.item_name.trim(),
+          item_price: Number(item.item_price),
+          item_description: item.item_description.trim(),
+        })),
       };
     }
 
     // Edit mode: return only changed fields
     const changes = {};
-    const validMenuItems = menuItems.filter(
-      (item) => item.item_name && item.item_price && item.item_description
-    );
 
-    // Compare each field
     if (formData.deal_title !== originalData.deal_title) {
-      changes.deal_title = formData.deal_title;
+      changes.deal_title = formData.deal_title.trim();
     }
     if (formData.deal_start_date !== originalData.deal_start_date) {
       changes.deal_start_date = formData.deal_start_date;
@@ -273,44 +606,120 @@ const DealModal = ({ isOpen, onClose, initialData = null, onSaved }) => {
     if (formData.deal_status !== originalData.deal_status) {
       changes.deal_status = formData.deal_status;
     }
-    if (Number(formData.redemption) !== Number(originalData.redemption)) {
-      changes.redemption = Number(formData.redemption);
-    }
     if (formData.deal_description !== originalData.deal_description) {
-      changes.deal_description = formData.deal_description;
+      changes.deal_description = formData.deal_description.trim();
     }
     if (Number(formData.deal_price) !== Number(originalData.deal_price)) {
       changes.deal_price = Number(formData.deal_price);
     }
-    if (Number(formData.deal_discount) !== Number(originalData.deal_discount)) {
-      changes.deal_discount = Number(formData.deal_discount);
-    }
-    if (Number(formData.slot_duration) !== Number(originalData.slot_duration)) {
-      changes.slot_duration = Number(formData.slot_duration);
-    }
-    if (Number(formData.max_capacity) !== Number(originalData.max_capacity)) {
-      changes.max_capacity = Number(formData.max_capacity);
+    if (Number(formData.deal_discount || 0) !== Number(originalData.deal_discount || 0)) {
+      changes.deal_discount = Number(formData.deal_discount || 0);
     }
 
     // Compare menu items
+    const formattedMenuItems = validMenuItems.map((item) => ({
+      item_name: item.item_name.trim(),
+      item_price: Number(item.item_price),
+      item_description: item.item_description.trim(),
+    }));
+
     if (
-      JSON.stringify(validMenuItems) !==
+      JSON.stringify(formattedMenuItems) !==
       JSON.stringify(initialData?.deal_menu || [])
     ) {
-      changes.deal_menu = validMenuItems;
+      changes.deal_menu = formattedMenuItems;
     }
 
     console.log("📝 Changed fields:", changes);
-    console.log("📊 Original data:", originalData);
-    console.log("📊 Current data:", formData);
-
     return changes;
   };
 
   const handleSubmit = async () => {
-    // Check if there are validation errors
-    if (Object.keys(errors).length > 0) {
-      alert("Please fix validation errors before submitting");
+    // ✅ Validate all fields before submission
+    let hasErrors = false;
+    const newErrors = { ...errors };
+
+    // Validate title
+    const titleError = validateDealTitle(formData.deal_title);
+    if (titleError) {
+      newErrors.deal_title = titleError;
+      hasErrors = true;
+    }
+
+    // Validate description
+    const descError = validateDescription(formData.deal_description);
+    if (descError) {
+      newErrors.deal_description = descError;
+      hasErrors = true;
+    }
+
+    // Validate price
+    const priceError = validatePrice(formData.deal_price);
+    if (priceError) {
+      newErrors.deal_price = priceError;
+      hasErrors = true;
+    }
+
+    // Validate discount (optional)
+    if (formData.deal_discount) {
+      const discountError = validateDiscount(formData.deal_discount);
+      if (discountError) {
+        newErrors.deal_discount = discountError;
+        hasErrors = true;
+      }
+    }
+
+    // Validate dates
+    if (!startDateTime) {
+      newErrors.deal_start_date = "Start date & time is required";
+      hasErrors = true;
+    }
+    if (!endDateTime) {
+      newErrors.deal_expires_at = "End date & time is required";
+      hasErrors = true;
+    }
+
+    // Validate date/time relationship
+    if (startDateTime && endDateTime) {
+      const dateTimeError = validateDateTime(startDateTime, endDateTime);
+      if (dateTimeError) {
+        newErrors.deal_expires_at = dateTimeError;
+        hasErrors = true;
+      }
+    }
+
+    // Check existing validation errors
+    if (
+      errors.deal_title ||
+      errors.deal_description ||
+      errors.deal_price ||
+      errors.deal_discount ||
+      errors.deal_start_date ||
+      errors.deal_expires_at ||
+      Object.values(errors.menuItems).some((err) => err) ||
+      Object.values(errors.menuItemNames).some((err) => err) ||
+      Object.values(errors.menuItemDescriptions).some((err) => err)
+    ) {
+      hasErrors = true;
+    }
+
+    if (hasErrors) {
+      setErrors(newErrors);
+      alert("Please fix all validation errors before submitting.");
+      return;
+    }
+
+    // Validate menu items
+    const validMenuItems = menuItems.filter(
+      (item) =>
+        item.item_name &&
+        item.item_price !== "" &&
+        item.item_price !== null &&
+        item.item_description
+    );
+
+    if (validMenuItems.length === 0) {
+      alert("Please add at least one complete menu item.");
       return;
     }
 
@@ -319,45 +728,10 @@ const DealModal = ({ isOpen, onClose, initialData = null, onSaved }) => {
       return;
     }
 
-    // Validate required fields
-    if (
-      !formData.deal_title ||
-      !formData.deal_start_date ||
-      !formData.deal_expires_at ||
-      !formData.deal_status ||
-      !formData.deal_price ||
-      !formData.slot_duration ||
-      !formData.max_capacity
-    ) {
-      alert(
-        "Please fill in all required fields: Title, Start Date & Time, End Date & Time, Status, Price, Slot Duration, Max Capacity."
-      );
-      return;
-    }
-
-    // Validate menu items
-    const validMenuItems = menuItems.filter(
-      (item) => item.item_name && item.item_price && item.item_description
-    );
-
-    if (validMenuItems.length === 0) {
-      alert("Please add at least one complete menu item.");
-      return;
-    }
-
-    const startDate = new Date(formData.deal_start_date);
-    const endDate = new Date(formData.deal_expires_at);
-
-    if (endDate <= startDate) {
-      alert("End date & time must be after the start date & time.");
-      return;
-    }
-
     setIsSubmitting(true);
 
     try {
       if (isEditMode) {
-        // ✅ UPDATE MODE: Send only changed fields
         const changes = getChangedFields();
 
         if (Object.keys(changes).length === 0) {
@@ -371,7 +745,6 @@ const DealModal = ({ isOpen, onClose, initialData = null, onSaved }) => {
         console.log("✅ Deal updated successfully:", response);
         alert("Deal updated successfully!");
       } else {
-        // ✅ CREATE MODE: Send all fields
         const payload = getChangedFields();
         console.log("🆕 Creating new deal:", payload);
         const response = await createNewDeal(payload);
@@ -379,7 +752,6 @@ const DealModal = ({ isOpen, onClose, initialData = null, onSaved }) => {
         alert("Deal created successfully!");
       }
 
-      // Trigger refresh in parent component
       if (onSaved) {
         onSaved();
       }
@@ -465,9 +837,17 @@ const DealModal = ({ isOpen, onClose, initialData = null, onSaved }) => {
                 name="deal_title"
                 value={formData.deal_title}
                 onChange={handleInputChange}
-                placeholder="e.g. Weekend Special"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="e.g. Weekend Special Dinner (min 5 characters)"
+                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  errors.deal_title ? "border-red-500" : "border-gray-300"
+                }`}
               />
+              {errors.deal_title && (
+                <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+                  <AlertCircle className="w-3 h-3" />
+                  {errors.deal_title}
+                </p>
+              )}
             </div>
 
             {/* Description */}
@@ -480,77 +860,65 @@ const DealModal = ({ isOpen, onClose, initialData = null, onSaved }) => {
                 value={formData.deal_description}
                 onChange={handleInputChange}
                 rows={3}
-                placeholder="Describe your deal..."
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Describe your deal (min 5 characters, max 500 characters)"
+                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  errors.deal_description ? "border-red-500" : "border-gray-300"
+                }`}
               />
+              {errors.deal_description && (
+                <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+                  <AlertCircle className="w-3 h-3" />
+                  {errors.deal_description}
+                </p>
+              )}
             </div>
 
-            {/* Price Fields */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Price & Discount */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Price *
+                  Deal Price * (£)
                 </label>
                 <input
                   type="number"
+                  step="0.01"
                   name="deal_price"
                   value={formData.deal_price}
                   onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="e.g. 25.99"
+                  className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                    errors.deal_price ? "border-red-500" : "border-gray-300"
+                  }`}
                 />
+                {errors.deal_price && (
+                  <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+                    <AlertCircle className="w-3 h-3" />
+                    {errors.deal_price}
+                  </p>
+                )}
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Discount %
+                  Discount (£) - Optional
                 </label>
                 <input
                   type="number"
+                  step="0.01"
                   name="deal_discount"
                   value={formData.deal_discount}
                   onChange={handleInputChange}
-                  placeholder="0-100"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="e.g. 5.00 (optional)"
+                  className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                    errors.deal_discount ? "border-red-500" : "border-gray-300"
+                  }`}
                 />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Redemption Limit *
-                </label>
-                <input
-                  type="number"
-                  name="redemption"
-                  value={formData.redemption}
-                  onChange={handleInputChange}
-                  placeholder="Max redemptions"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-              </div>
-            </div>
-
-            {/* Capacity */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Max Capacity
-                {hasBookings && maxBooked > 0 && (
-                  <span className="ml-2 text-xs text-amber-600">
-                    (Min: {maxBooked} - highest booked)
-                  </span>
+                {errors.deal_discount && (
+                  <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+                    <AlertCircle className="w-3 h-3" />
+                    {errors.deal_discount}
+                  </p>
                 )}
-              </label>
-              <input
-                type="number"
-                name="max_capacity"
-                value={formData.max_capacity}
-                onChange={handleInputChange}
-                min={hasBookings ? maxBooked : 1}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-              {errors.max_capacity && (
-                <p className="text-sm text-red-600 mt-1 flex items-center gap-1">
-                  <AlertCircle className="w-4 h-4" />
-                  {errors.max_capacity}
-                </p>
-              )}
+              </div>
             </div>
           </div>
 
@@ -577,9 +945,17 @@ const DealModal = ({ isOpen, onClose, initialData = null, onSaved }) => {
                   className={`w-full px-3 py-2 border rounded-md ${
                     hasBookings
                       ? "bg-gray-100 text-gray-500 cursor-not-allowed border-gray-300"
+                      : errors.deal_start_date
+                      ? "border-red-500 focus:ring-2 focus:ring-blue-500"
                       : "border-gray-300 focus:ring-2 focus:ring-blue-500"
                   }`}
                 />
+                {errors.deal_start_date && (
+                  <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+                    <AlertCircle className="w-3 h-3" />
+                    {errors.deal_start_date}
+                  </p>
+                )}
                 {hasBookings && (
                   <p className="text-xs text-gray-500 mt-1 flex items-center gap-1">
                     <Lock className="w-3 h-3" />
@@ -602,13 +978,26 @@ const DealModal = ({ isOpen, onClose, initialData = null, onSaved }) => {
                   className={`w-full px-3 py-2 border rounded-md ${
                     hasBookings
                       ? "bg-gray-100 text-gray-500 cursor-not-allowed border-gray-300"
+                      : errors.deal_expires_at
+                      ? "border-red-500 focus:ring-2 focus:ring-blue-500"
                       : "border-gray-300 focus:ring-2 focus:ring-blue-500"
                   }`}
                 />
+                {errors.deal_expires_at && (
+                  <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+                    <AlertCircle className="w-3 h-3" />
+                    {errors.deal_expires_at}
+                  </p>
+                )}
                 {hasBookings && (
                   <p className="text-xs text-gray-500 mt-1 flex items-center gap-1">
                     <Lock className="w-3 h-3" />
                     Locked to protect existing bookings
+                  </p>
+                )}
+                {!hasBookings && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    Time must be after start time (same date allowed)
                   </p>
                 )}
               </div>
@@ -624,34 +1013,6 @@ const DealModal = ({ isOpen, onClose, initialData = null, onSaved }) => {
                 </p>
               </div>
             )}
-
-            {/* Slot Duration */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Slot Duration (minutes) *
-                {hasBookings && (
-                  <span className="ml-2 text-xs text-red-600">🔒 Locked</span>
-                )}
-              </label>
-              <input
-                type="number"
-                name="slot_duration"
-                value={formData.slot_duration}
-                onChange={handleInputChange}
-                disabled={hasBookings}
-                className={`w-full px-3 py-2 border rounded-md ${
-                  hasBookings
-                    ? "bg-gray-100 text-gray-500 cursor-not-allowed border-gray-300"
-                    : "border-gray-300 focus:ring-2 focus:ring-blue-500"
-                }`}
-              />
-              {hasBookings && (
-                <p className="text-xs text-gray-500 mt-1 flex items-center gap-1">
-                  <Lock className="w-3 h-3" />
-                  Locked to protect booking time slots
-                </p>
-              )}
-            </div>
 
             {/* Status */}
             <div>
@@ -679,7 +1040,7 @@ const DealModal = ({ isOpen, onClose, initialData = null, onSaved }) => {
           <div className="pt-4 border-t">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-semibold text-gray-800">
-                Deal Menu Items *
+                Deal Menu Items * (Minimum 1 item required)
               </h3>
               <button
                 type="button"
@@ -712,43 +1073,83 @@ const DealModal = ({ isOpen, onClose, initialData = null, onSaved }) => {
                   </div>
 
                   <div className="space-y-3">
-                    <input
-                      type="text"
-                      placeholder="Item Name"
-                      value={item.item_name}
-                      onChange={(e) =>
-                        handleMenuItemChange(index, "item_name", e.target.value)
-                      }
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
+                    {/* Item Name */}
+                    <div>
+                      <input
+                        type="text"
+                        placeholder="Item Name (min 5 characters)"
+                        value={item.item_name}
+                        onChange={(e) =>
+                          handleMenuItemChange(index, "item_name", e.target.value)
+                        }
+                        className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                          errors.menuItemNames?.[index]
+                            ? "border-red-500"
+                            : "border-gray-300"
+                        }`}
+                      />
+                      {errors.menuItemNames?.[index] && (
+                        <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+                          <AlertCircle className="w-3 h-3" />
+                          {errors.menuItemNames[index]}
+                        </p>
+                      )}
+                    </div>
 
-                    <input
-                      type="number"
-                      placeholder="Item Price"
-                      value={item.item_price}
-                      onChange={(e) =>
-                        handleMenuItemChange(
-                          index,
-                          "item_price",
-                          e.target.value
-                        )
-                      }
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
+                    {/* Item Price */}
+                    <div>
+                      <input
+                        type="number"
+                        step="0.01"
+                        placeholder="Item Price (£) e.g. 12.99"
+                        value={item.item_price}
+                        onChange={(e) =>
+                          handleMenuItemChange(
+                            index,
+                            "item_price",
+                            e.target.value
+                          )
+                        }
+                        className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                          errors.menuItems?.[index]
+                            ? "border-red-500"
+                            : "border-gray-300"
+                        }`}
+                      />
+                      {errors.menuItems?.[index] && (
+                        <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+                          <AlertCircle className="w-3 h-3" />
+                          {errors.menuItems[index]}
+                        </p>
+                      )}
+                    </div>
 
-                    <textarea
-                      placeholder="Item Description"
-                      value={item.item_description}
-                      onChange={(e) =>
-                        handleMenuItemChange(
-                          index,
-                          "item_description",
-                          e.target.value
-                        )
-                      }
-                      rows={2}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
+                    {/* Item Description */}
+                    <div>
+                      <textarea
+                        placeholder="Item Description (min 5 characters)"
+                        value={item.item_description}
+                        onChange={(e) =>
+                          handleMenuItemChange(
+                            index,
+                            "item_description",
+                            e.target.value
+                          )
+                        }
+                        rows={2}
+                        className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                          errors.menuItemDescriptions?.[index]
+                            ? "border-red-500"
+                            : "border-gray-300"
+                        }`}
+                      />
+                      {errors.menuItemDescriptions?.[index] && (
+                        <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+                          <AlertCircle className="w-3 h-3" />
+                          {errors.menuItemDescriptions[index]}
+                        </p>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))}
@@ -788,9 +1189,9 @@ const DealModal = ({ isOpen, onClose, initialData = null, onSaved }) => {
             </button>
             <button
               onClick={handleSubmit}
-              disabled={isSubmitting || Object.keys(errors).length > 0}
+              disabled={isSubmitting}
               className={`flex-1 py-3 rounded-lg font-medium text-white transition-colors ${
-                isSubmitting || Object.keys(errors).length > 0
+                isSubmitting
                   ? "bg-gray-400 cursor-not-allowed"
                   : "bg-blue-600 hover:bg-blue-700"
               }`}
