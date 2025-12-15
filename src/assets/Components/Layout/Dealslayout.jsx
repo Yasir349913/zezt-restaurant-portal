@@ -13,10 +13,12 @@ export default function Dealslayout() {
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [filteredDeals, setFilteredDeals] = useState(null);
 
-  // ✅ Admin approval state
+  // ✅ Admin approval state with additional fields for trial and subscription
   const [adminStatus, setAdminStatus] = useState(null);
   const [isApproved, setIsApproved] = useState(false);
-  const [approvalMessage, setApprovalMessage] = useState("");
+  const [hasTrialEnded, setHasTrialEnded] = useState(false);
+  const [isSubscriptionActive, setIsSubscriptionActive] = useState(true);
+  const [statusMessage, setStatusMessage] = useState("");
   const [loadingStatus, setLoadingStatus] = useState(true);
 
   // ✅ Fetch admin status on component mount
@@ -27,15 +29,18 @@ export default function Dealslayout() {
         const response = await checkAdminStatus();
         console.log("Admin status response:", response);
 
-        // ✅ FIXED: Use is_approved boolean from backend
         setAdminStatus(response.admin_status);
-        setIsApproved(response.is_approved); // Using the boolean field directly
-        setApprovalMessage(response.message || "");
+        setIsApproved(response.is_approved || false);
+        setHasTrialEnded(response.has_trial_ended || false);
+        setIsSubscriptionActive(response.is_Subscription_Active !== false);
+        setStatusMessage(response.message || "");
       } catch (error) {
         console.error("Failed to fetch admin status:", error);
         // On error, assume not approved for safety
         setIsApproved(false);
-        setApprovalMessage("");
+        setHasTrialEnded(false);
+        setIsSubscriptionActive(true);
+        setStatusMessage("");
       } finally {
         setLoadingStatus(false);
       }
@@ -75,6 +80,43 @@ export default function Dealslayout() {
     );
   };
 
+  // ✅ Determine which scenario to display
+  const getStatusInfo = () => {
+    if (!loadingStatus && statusMessage) {
+      // Scenario 1: Restaurant not approved (pending)
+      if (!isApproved && adminStatus === "pending") {
+        return {
+          title: "Restaurant Approval Pending",
+          canCreateDeal: false,
+        };
+      }
+
+      // Scenario 2: Trial period ended
+      if (hasTrialEnded) {
+        return {
+          title: "Trial Period Expired",
+          canCreateDeal: false,
+        };
+      }
+
+      // Scenario 3: Subscription inactive
+      if (!isSubscriptionActive) {
+        return {
+          title: "Subscription Inactive",
+          canCreateDeal: false,
+        };
+      }
+    }
+
+    // Default: Everything is fine
+    return {
+      title: null,
+      canCreateDeal: true,
+    };
+  };
+
+  const statusInfo = getStatusInfo();
+
   return (
     <div className="bg-gray-100 min-h-screen xl:ml-64 pt-14">
       <div className="p-6 space-y-6 w-full overflow-x-hidden">
@@ -85,10 +127,10 @@ export default function Dealslayout() {
           {/* ✅ Create Deal Button with approval check */}
           <div className="relative group">
             <button
-              onClick={() => isApproved && setIsModalOpen(true)}
-              disabled={!isApproved || loadingStatus}
+              onClick={() => statusInfo.canCreateDeal && setIsModalOpen(true)}
+              disabled={!statusInfo.canCreateDeal || loadingStatus}
               className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors duration-200 shadow-sm ${
-                isApproved && !loadingStatus
+                statusInfo.canCreateDeal && !loadingStatus
                   ? "bg-[#E57272] hover:bg-[#E57272]/90 text-white cursor-pointer"
                   : "bg-gray-300 text-gray-500 cursor-not-allowed"
               }`}
@@ -97,8 +139,8 @@ export default function Dealslayout() {
               {loadingStatus ? "Loading..." : "Create New Deal"}
             </button>
 
-            {/* ✅ Show backend message on hover if not approved */}
-            {!loadingStatus && !isApproved && approvalMessage && (
+            {/* ✅ Show backend message on hover if not able to create deal */}
+            {!loadingStatus && !statusInfo.canCreateDeal && statusMessage && (
               <div className="invisible group-hover:visible absolute top-full right-0 mt-2 w-80 bg-yellow-50 border border-yellow-200 rounded-lg p-4 shadow-lg z-10 transition-all duration-200">
                 <div className="flex gap-2">
                   <AlertCircle
@@ -107,10 +149,10 @@ export default function Dealslayout() {
                   />
                   <div>
                     <p className="text-sm font-medium text-yellow-800 mb-1">
-                      Approval Required
+                      {statusInfo.title}
                     </p>
                     <p className="text-xs text-yellow-700 leading-relaxed">
-                      {approvalMessage}
+                      {statusMessage}
                     </p>
                   </div>
                 </div>
@@ -119,8 +161,8 @@ export default function Dealslayout() {
           </div>
         </div>
 
-        {/* ✅ Banner with backend message if not approved */}
-        {!loadingStatus && !isApproved && approvalMessage && (
+        {/* ✅ Banner with appropriate message for each scenario */}
+        {!loadingStatus && !statusInfo.canCreateDeal && statusMessage && (
           <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-r-lg">
             <div className="flex items-start">
               <AlertCircle
@@ -129,11 +171,9 @@ export default function Dealslayout() {
               />
               <div className="ml-3">
                 <h3 className="text-sm font-medium text-yellow-800">
-                  Restaurant Approval Pending
+                  {statusInfo.title}
                 </h3>
-                <p className="text-sm text-yellow-700 mt-1">
-                  {approvalMessage}
-                </p>
+                <p className="text-sm text-yellow-700 mt-1">{statusMessage}</p>
               </div>
             </div>
           </div>
