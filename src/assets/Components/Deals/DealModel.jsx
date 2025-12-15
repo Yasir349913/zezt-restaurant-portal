@@ -530,7 +530,7 @@ const DealModal = ({ isOpen, onClose, initialData = null, onSaved }) => {
             {/* Capacity */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Max Capacity per Slot *
+                Max Capacity
                 {hasBookings && maxBooked > 0 && (
                   <span className="ml-2 text-xs text-amber-600">
                     (Min: {maxBooked} - highest booked)
