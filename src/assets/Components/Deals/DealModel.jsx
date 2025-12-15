@@ -100,17 +100,17 @@ const DealModal = ({ isOpen, onClose, initialData = null, onSaved }) => {
     if (value === "" || value === null || value === undefined) {
       return "Price is required";
     }
-    
+
     const numValue = Number(value);
-    
+
     if (isNaN(numValue)) {
       return "Price must be a valid number";
     }
-    
+
     if (numValue < 0) {
       return "Price cannot be negative";
     }
-    
+
     if (numValue === 0) {
       return "Price must be greater than 0";
     }
@@ -123,7 +123,7 @@ const DealModal = ({ isOpen, onClose, initialData = null, onSaved }) => {
     if (numValue > 999999) {
       return "Price seems too high";
     }
-    
+
     return "";
   };
 
@@ -132,13 +132,13 @@ const DealModal = ({ isOpen, onClose, initialData = null, onSaved }) => {
     if (value === "" || value === null || value === undefined) {
       return ""; // No error - discount is optional
     }
-    
+
     const numValue = Number(value);
-    
+
     if (isNaN(numValue)) {
       return "Discount must be a valid number";
     }
-    
+
     if (numValue < 0) {
       return "Discount cannot be negative";
     }
@@ -151,7 +151,7 @@ const DealModal = ({ isOpen, onClose, initialData = null, onSaved }) => {
     if (numValue > 100000) {
       return "Discount seems too high";
     }
-    
+
     return "";
   };
 
@@ -193,17 +193,17 @@ const DealModal = ({ isOpen, onClose, initialData = null, onSaved }) => {
     if (value === "" || value === null || value === undefined) {
       return "Item price is required";
     }
-    
+
     const numValue = Number(value);
-    
+
     if (isNaN(numValue)) {
       return "Item price must be a valid number";
     }
-    
+
     if (numValue < 0) {
       return "Item price cannot be negative";
     }
-    
+
     if (numValue === 0) {
       return "Item price must be greater than 0";
     }
@@ -216,7 +216,7 @@ const DealModal = ({ isOpen, onClose, initialData = null, onSaved }) => {
     if (numValue > 999999) {
       return "Item price seems too high";
     }
-    
+
     return "";
   };
 
@@ -612,7 +612,10 @@ const DealModal = ({ isOpen, onClose, initialData = null, onSaved }) => {
     if (Number(formData.deal_price) !== Number(originalData.deal_price)) {
       changes.deal_price = Number(formData.deal_price);
     }
-    if (Number(formData.deal_discount || 0) !== Number(originalData.deal_discount || 0)) {
+    if (
+      Number(formData.deal_discount || 0) !==
+      Number(originalData.deal_discount || 0)
+    ) {
       changes.deal_discount = Number(formData.deal_discount || 0);
     }
 
@@ -1080,7 +1083,11 @@ const DealModal = ({ isOpen, onClose, initialData = null, onSaved }) => {
                         placeholder="Item Name (min 5 characters)"
                         value={item.item_name}
                         onChange={(e) =>
-                          handleMenuItemChange(index, "item_name", e.target.value)
+                          handleMenuItemChange(
+                            index,
+                            "item_name",
+                            e.target.value
+                          )
                         }
                         className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                           errors.menuItemNames?.[index]
