@@ -18,6 +18,9 @@ const DealsTable = ({ refreshTrigger, filteredDeals = null }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingDeal, setEditingDeal] = useState(null);
 
+  // ✅ Pagination settings
+  const DEALS_PER_PAGE = 10;
+
   const fetchDeals = () => {
     if (!restaurantId) return;
 
@@ -37,6 +40,7 @@ const DealsTable = ({ refreshTrigger, filteredDeals = null }) => {
     if (filteredDeals === null) return;
     setDealsData(filteredDeals);
     setLoading(false);
+    setCurrentPage(1); // Reset to first page when filters change
   }, [filteredDeals]);
 
   useEffect(() => {
@@ -44,8 +48,12 @@ const DealsTable = ({ refreshTrigger, filteredDeals = null }) => {
     fetchDeals();
   }, [restaurantId, refreshTrigger, filteredDeals]);
 
-  const totalPages = 5;
+  // ✅ Calculate pagination values dynamically
   const totalDeals = dealsData.length;
+  const totalPages = Math.ceil(totalDeals / DEALS_PER_PAGE);
+  const startIndex = (currentPage - 1) * DEALS_PER_PAGE;
+  const endIndex = startIndex + DEALS_PER_PAGE;
+  const currentDeals = dealsData.slice(startIndex, endIndex);
 
   const toggleDropdown = (dealId) => {
     setActiveDropdown(activeDropdown === dealId ? null : dealId);
@@ -76,7 +84,17 @@ const DealsTable = ({ refreshTrigger, filteredDeals = null }) => {
     setActionLoadingId(dealId);
     try {
       await deleteDeal(dealId);
-      setDealsData((prev) => prev.filter((d) => (d._id || d.id) !== dealId));
+      setDealsData((prev) => {
+        const updatedDeals = prev.filter((d) => (d._id || d.id) !== dealId);
+
+        // ✅ Adjust current page if needed after deletion
+        const newTotalPages = Math.ceil(updatedDeals.length / DEALS_PER_PAGE);
+        if (currentPage > newTotalPages && newTotalPages > 0) {
+          setCurrentPage(newTotalPages);
+        }
+
+        return updatedDeals;
+      });
       alert("Deal deleted successfully.");
     } catch (err) {
       console.error("Failed to delete deal:", err);
@@ -104,7 +122,9 @@ const DealsTable = ({ refreshTrigger, filteredDeals = null }) => {
   };
 
   const goToPage = (page) => {
-    if (page >= 1 && page <= totalPages) setCurrentPage(page);
+    if (page >= 1 && page <= totalPages) {
+      setCurrentPage(page);
+    }
   };
 
   const formatDate = (dateString) => {
@@ -115,6 +135,15 @@ const DealsTable = ({ refreshTrigger, filteredDeals = null }) => {
       day: "numeric",
       year: "numeric",
     });
+  };
+
+  // ✅ Generate page numbers array dynamically
+  const getPageNumbers = () => {
+    const pages = [];
+    for (let i = 1; i <= totalPages; i++) {
+      pages.push(i);
+    }
+    return pages;
   };
 
   const ActionDropdown = ({ dealId, isOpen, onToggle }) => (
@@ -200,14 +229,15 @@ const DealsTable = ({ refreshTrigger, filteredDeals = null }) => {
             </thead>
 
             <tbody>
-              {dealsData.map((deal, index) => {
+              {currentDeals.map((deal, index) => {
                 const id = deal._id || deal.id || index;
+                const globalIndex = startIndex + index;
 
                 return (
                   <tr
                     key={id}
                     className={`border-b border-gray-100 ${
-                      index % 2 === 0 ? "bg-white" : "bg-gray-50"
+                      globalIndex % 2 === 0 ? "bg-white" : "bg-gray-50"
                     }`}
                   >
                     <td className="py-3 px-4 text-gray-800">
@@ -247,39 +277,56 @@ const DealsTable = ({ refreshTrigger, filteredDeals = null }) => {
           </table>
         </div>
 
-        <div className="flex items-center justify-between px-4 py-3 text-sm">
-          <div className="text-gray-600">{totalDeals} Deals shown</div>
-          <div className="flex items-center gap-1">
-            <button
-              onClick={() => goToPage(currentPage - 1)}
-              disabled={currentPage === 1}
-              className="px-3 py-1 border rounded"
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </button>
+        {/* ✅ Show footer info and pagination only if there are deals */}
+        <div className="flex items-center justify-between px-4 py-3 text-sm border-t border-gray-200">
+          <div className="text-gray-600">
+            Showing {startIndex + 1} to {Math.min(endIndex, totalDeals)} of{" "}
+            {totalDeals} deals
+          </div>
 
-            {[1, 2, 3].map((page) => (
+          {/* ✅ Only show pagination if there are more than 10 deals */}
+          {totalDeals > DEALS_PER_PAGE && (
+            <div className="flex items-center gap-1">
               <button
-                key={page}
-                onClick={() => goToPage(page)}
-                className={`px-3 py-1 border rounded ${
-                  currentPage === page
-                    ? "bg-blue-50 border-blue-200 text-blue-600"
-                    : ""
+                onClick={() => goToPage(currentPage - 1)}
+                disabled={currentPage === 1}
+                className={`px-3 py-1 border rounded transition-colors ${
+                  currentPage === 1
+                    ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                    : "bg-white text-gray-700 hover:bg-gray-50"
                 }`}
               >
-                {page}
+                <ChevronLeft className="w-4 h-4" />
               </button>
-            ))}
 
-            <button
-              onClick={() => goToPage(currentPage + 1)}
-              disabled={currentPage === totalPages}
-              className="px-3 py-1 border rounded"
-            >
-              <ChevronRight className="w-4 h-4" />
-            </button>
-          </div>
+              {/* ✅ Dynamic page numbers based on actual total pages */}
+              {getPageNumbers().map((page) => (
+                <button
+                  key={page}
+                  onClick={() => goToPage(page)}
+                  className={`px-3 py-1 border rounded transition-colors ${
+                    currentPage === page
+                      ? "bg-blue-50 border-blue-200 text-blue-600 font-medium"
+                      : "bg-white text-gray-700 hover:bg-gray-50"
+                  }`}
+                >
+                  {page}
+                </button>
+              ))}
+
+              <button
+                onClick={() => goToPage(currentPage + 1)}
+                disabled={currentPage === totalPages}
+                className={`px-3 py-1 border rounded transition-colors ${
+                  currentPage === totalPages
+                    ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                    : "bg-white text-gray-700 hover:bg-gray-50"
+                }`}
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
