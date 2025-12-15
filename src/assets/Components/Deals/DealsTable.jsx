@@ -195,59 +195,43 @@ const DealsTable = ({ refreshTrigger, filteredDeals = null }) => {
 
       {isOpen && (
         <div className="absolute right-0 mt-1 w-48 bg-white border border-gray-200 rounded-md shadow-lg z-50">
-          {/* Update Button */}
-          <div className="relative group/update">
-            <button
-              onClick={() => canPerformActions && openEditModal(dealId)}
-              disabled={!canPerformActions}
-              className={`w-full px-3 py-2 text-left text-sm ${
-                canPerformActions
-                  ? "text-gray-700 hover:bg-gray-50 cursor-pointer"
-                  : "text-gray-400 cursor-not-allowed bg-gray-50"
-              }`}
-            >
-              Update
-            </button>
-
-            {/* Tooltip for disabled Update */}
-            {!canPerformActions && statusMessage && (
-              <div className="hidden group-hover/update:block absolute left-full top-0 ml-2 w-72 bg-yellow-50 border border-yellow-300 rounded-lg p-3 shadow-xl z-[100]">
-                <p className="text-xs text-yellow-900 font-medium mb-1">
-                  Action Unavailable
-                </p>
+          {/* ✅ Warning message ABOVE actions when disabled */}
+          {!canPerformActions && statusMessage && (
+            <div className="px-3 py-2 bg-yellow-50 border-b border-yellow-200">
+              <div className="flex items-start gap-2">
+                <span className="text-yellow-600 text-xs">⚠️</span>
                 <p className="text-xs text-yellow-800 leading-relaxed">
                   {statusMessage}
                 </p>
               </div>
-            )}
-          </div>
+            </div>
+          )}
+
+          {/* Update Button */}
+          <button
+            onClick={() => canPerformActions && openEditModal(dealId)}
+            disabled={!canPerformActions}
+            className={`w-full px-3 py-2 text-left text-sm ${
+              canPerformActions
+                ? "text-gray-700 hover:bg-gray-50 cursor-pointer"
+                : "text-gray-400 cursor-not-allowed bg-gray-50"
+            }`}
+          >
+            Update
+          </button>
 
           {/* Delete Button */}
-          <div className="relative group/delete">
-            <button
-              onClick={() => canPerformActions && handleDelete(dealId)}
-              disabled={!canPerformActions}
-              className={`w-full px-3 py-2 text-left text-sm ${
-                canPerformActions
-                  ? "text-red-600 hover:bg-gray-50 cursor-pointer"
-                  : "text-gray-400 cursor-not-allowed bg-gray-50"
-              }`}
-            >
-              Delete
-            </button>
-
-            {/* Tooltip for disabled Delete */}
-            {!canPerformActions && statusMessage && (
-              <div className="hidden group-hover/delete:block absolute left-full top-0 ml-2 w-72 bg-yellow-50 border border-yellow-300 rounded-lg p-3 shadow-xl z-[100]">
-                <p className="text-xs text-yellow-900 font-medium mb-1">
-                  Action Unavailable
-                </p>
-                <p className="text-xs text-yellow-800 leading-relaxed">
-                  {statusMessage}
-                </p>
-              </div>
-            )}
-          </div>
+          <button
+            onClick={() => canPerformActions && handleDelete(dealId)}
+            disabled={!canPerformActions}
+            className={`w-full px-3 py-2 text-left text-sm ${
+              canPerformActions
+                ? "text-red-600 hover:bg-gray-50 cursor-pointer"
+                : "text-gray-400 cursor-not-allowed bg-gray-50"
+            }`}
+          >
+            Delete
+          </button>
         </div>
       )}
     </div>
