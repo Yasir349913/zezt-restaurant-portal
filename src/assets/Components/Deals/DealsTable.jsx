@@ -3,6 +3,7 @@ import { ChevronLeft, ChevronRight, MoreHorizontal } from "lucide-react";
 import {
   getAllDealsForCurrentMonth,
   deleteDeal,
+  checkAdminStatus,
 } from "../../../api/services/Dealsservice";
 import { useRestaurant } from "../../../context/RestaurantContext";
 import DealModal from "./DealModel";
@@ -17,6 +18,11 @@ const DealsTable = ({ refreshTrigger, filteredDeals = null }) => {
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingDeal, setEditingDeal] = useState(null);
+
+  // ✅ Admin status state
+  const [canPerformActions, setCanPerformActions] = useState(true);
+  const [statusMessage, setStatusMessage] = useState("");
+  const [loadingStatus, setLoadingStatus] = useState(true);
 
   // ✅ Pagination settings
   const DEALS_PER_PAGE = 10;
@@ -35,6 +41,38 @@ const DealsTable = ({ refreshTrigger, filteredDeals = null }) => {
       )
       .finally(() => setLoading(false));
   };
+
+  // ✅ Fetch admin status on mount
+  useEffect(() => {
+    const fetchAdminStatus = async () => {
+      try {
+        setLoadingStatus(true);
+        const response = await checkAdminStatus();
+        console.log("Admin status response:", response);
+
+        // Check if actions are allowed
+        const isApproved = response.is_approved !== false;
+        const hasTrialEnded = response.has_trial_ended === true;
+        const isSubscriptionActive = response.is_Subscription_Active !== false;
+
+        // Actions are allowed only if approved AND trial hasn't ended AND subscription is active
+        const actionsAllowed =
+          isApproved && !hasTrialEnded && isSubscriptionActive;
+
+        setCanPerformActions(actionsAllowed);
+        setStatusMessage(response.message || "");
+      } catch (error) {
+        console.error("Failed to fetch admin status:", error);
+        // On error, allow actions (fail open)
+        setCanPerformActions(true);
+        setStatusMessage("");
+      } finally {
+        setLoadingStatus(false);
+      }
+    };
+
+    fetchAdminStatus();
+  }, []);
 
   useEffect(() => {
     if (filteredDeals === null) return;
@@ -156,20 +194,50 @@ const DealsTable = ({ refreshTrigger, filteredDeals = null }) => {
       </button>
 
       {isOpen && (
-        <div className="absolute right-0 mt-1 w-32 bg-white border border-gray-200 rounded-md shadow-lg z-50">
-          <button
-            onClick={() => openEditModal(dealId)}
-            className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-50"
-          >
-            Update
-          </button>
+        <div className="absolute right-0 mt-1 w-48 bg-white border border-gray-200 rounded-md shadow-lg z-50">
+          {/* Update Button */}
+          <div className="relative group">
+            <button
+              onClick={() => canPerformActions && openEditModal(dealId)}
+              disabled={!canPerformActions}
+              className={`w-full px-3 py-2 text-left text-sm ${
+                canPerformActions
+                  ? "text-gray-700 hover:bg-gray-50 cursor-pointer"
+                  : "text-gray-400 cursor-not-allowed bg-gray-50"
+              }`}
+            >
+              Update
+            </button>
 
-          <button
-            onClick={() => handleDelete(dealId)}
-            className="w-full px-3 py-2 text-left text-sm text-red-600 hover:bg-gray-50"
-          >
-            Delete
-          </button>
+            {/* Tooltip on hover for disabled state */}
+            {!canPerformActions && statusMessage && (
+              <div className="invisible group-hover:visible absolute left-full top-0 ml-2 w-64 bg-yellow-50 border border-yellow-200 rounded-md p-3 shadow-lg z-50">
+                <p className="text-xs text-yellow-800">{statusMessage}</p>
+              </div>
+            )}
+          </div>
+
+          {/* Delete Button */}
+          <div className="relative group">
+            <button
+              onClick={() => canPerformActions && handleDelete(dealId)}
+              disabled={!canPerformActions}
+              className={`w-full px-3 py-2 text-left text-sm ${
+                canPerformActions
+                  ? "text-red-600 hover:bg-gray-50 cursor-pointer"
+                  : "text-gray-400 cursor-not-allowed bg-gray-50"
+              }`}
+            >
+              Delete
+            </button>
+
+            {/* Tooltip on hover for disabled state */}
+            {!canPerformActions && statusMessage && (
+              <div className="invisible group-hover:visible absolute left-full top-0 ml-2 w-64 bg-yellow-50 border border-yellow-200 rounded-md p-3 shadow-lg z-50">
+                <p className="text-xs text-yellow-800">{statusMessage}</p>
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>
