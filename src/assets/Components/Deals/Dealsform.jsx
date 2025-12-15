@@ -307,7 +307,7 @@ const CreateDealModal = ({ isOpen, onClose, onDealCreated }) => {
       return;
     }
 
-    // ✅ Validation for numeric fields
+    // ✅ Validation for numeric fields - FIXED to allow typing
     if (["slot_duration", "max_capacity", "deal_discount"].includes(name)) {
       // Allow empty string
       if (value === "") {
@@ -318,9 +318,13 @@ const CreateDealModal = ({ isOpen, onClose, onDealCreated }) => {
 
       const numValue = Number(value);
 
+      // ✅ FIXED: Always update the value first so user can type
+      setFormData((prev) => ({ ...prev, [name]: numValue }));
+
       // Clear previous error
       setErrors((prev) => ({ ...prev, [name]: "" }));
 
+      // Validate and show errors (but don't prevent input)
       // Prevent negative values for all numeric fields
       if (numValue < 0) {
         setErrors((prev) => ({
@@ -378,8 +382,6 @@ const CreateDealModal = ({ isOpen, onClose, onDealCreated }) => {
           return;
         }
       }
-
-      setFormData((prev) => ({ ...prev, [name]: numValue }));
     } else {
       setFormData((prev) => ({ ...prev, [name]: value }));
     }
@@ -821,8 +823,8 @@ const CreateDealModal = ({ isOpen, onClose, onDealCreated }) => {
                 name="slot_duration"
                 value={formData.slot_duration}
                 onChange={handleInputChange}
-                placeholder="15-1440 minutes"
-                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#E57272] focus:border-[#E57272] ${
+                placeholder="How long each dining experience lasts (15-1440 min)"
+                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#E57272] focus:border-[#E57272] no-arrows ${
                   errors.slot_duration ? "border-red-500" : "border-gray-300"
                 }`}
               />
@@ -842,7 +844,7 @@ const CreateDealModal = ({ isOpen, onClose, onDealCreated }) => {
                 value={formData.max_capacity}
                 onChange={handleInputChange}
                 placeholder="1-1000"
-                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#E57272] focus:border-[#E57272] ${
+                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-[#E57272] focus:border-[#E57272] no-arrows ${
                   errors.max_capacity ? "border-red-500" : "border-gray-300"
                 }`}
               />
@@ -1040,6 +1042,18 @@ const CreateDealModal = ({ isOpen, onClose, onDealCreated }) => {
           </button>
         </div>
       </div>
+
+      {/* CSS to hide number input arrows */}
+      <style jsx>{`
+        .no-arrows::-webkit-inner-spin-button,
+        .no-arrows::-webkit-outer-spin-button {
+          -webkit-appearance: none;
+          margin: 0;
+        }
+        .no-arrows[type="number"] {
+          -moz-appearance: textfield;
+        }
+      `}</style>
     </div>
   );
 };
