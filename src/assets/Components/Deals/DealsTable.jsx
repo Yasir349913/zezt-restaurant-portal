@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { ChevronLeft, ChevronRight, MoreHorizontal } from "lucide-react";
 import {
   getAllDealsForCurrentMonth,
@@ -23,6 +23,9 @@ const DealsTable = ({ refreshTrigger, filteredDeals = null }) => {
   const [canPerformActions, setCanPerformActions] = useState(true);
   const [statusMessage, setStatusMessage] = useState("");
   const [loadingStatus, setLoadingStatus] = useState(true);
+
+  // ✅ Ref for click outside detection
+  const dropdownRef = useRef(null);
 
   // ✅ Pagination settings
   const DEALS_PER_PAGE = 10;
@@ -73,6 +76,25 @@ const DealsTable = ({ refreshTrigger, filteredDeals = null }) => {
 
     fetchAdminStatus();
   }, []);
+
+  // ✅ Click outside to close dropdown
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setActiveDropdown(null);
+      }
+    };
+
+    // Add event listener when dropdown is open
+    if (activeDropdown !== null) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+
+    // Cleanup
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [activeDropdown]);
 
   useEffect(() => {
     if (filteredDeals === null) return;
@@ -185,7 +207,7 @@ const DealsTable = ({ refreshTrigger, filteredDeals = null }) => {
   };
 
   const ActionDropdown = ({ dealId, isOpen, onToggle }) => (
-    <div className="relative">
+    <div className="relative" ref={isOpen ? dropdownRef : null}>
       <button
         onClick={() => onToggle(dealId)}
         className="p-1 hover:bg-gray-100 rounded transition-colors"
