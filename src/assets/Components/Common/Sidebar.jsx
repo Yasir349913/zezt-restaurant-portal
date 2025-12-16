@@ -106,7 +106,7 @@ const Sidebar = ({ open, setOpen }) => {
         {/* Navigation */}
         <div className="flex-1 min-h-0">
           <nav className="h-full px-4 py-4">
-            <div className="h-full overflow-y-auto space-y-2 pr-2 beautiful-scroll">
+            <div className="h-full overflow-y-auto space-y-2 pr-2 scrollbar-thin">
               {navItems.map(({ path, label, icon: Icon, hasBadge }) => {
                 const isActive = currentPath === path;
 
