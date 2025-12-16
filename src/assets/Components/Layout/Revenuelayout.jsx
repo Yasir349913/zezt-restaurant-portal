@@ -4,7 +4,7 @@ import RevenuecardItems from "../Revenue/RevenuecardItems";
 import RevenueOverviewgraphs from "../Revenue/RevenueOverview";
 import RecentInvoices from "../Revenue/RecentInvoices";
 import Progressbar from "../Revenue/Progressbar";
-import { useRestaurant } from "../../context/RestaurantContext";
+import { useRestaurant } from "../../../context/RestaurantContext";
 
 export default function Revenuelayout() {
   const { restaurantId } = useRestaurant();
