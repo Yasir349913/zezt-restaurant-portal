@@ -1,6 +1,6 @@
 // src/assets/Components/Dashboard/Header.jsx
 import React, { useState, useRef, useEffect } from "react";
-import { Menu, User2, LogOut, Home, ExternalLink } from "lucide-react";
+import { Menu, User2, LogOut } from "lucide-react";
 import { useAuth } from "../../../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 import NotificationBell from "../Notifications/NotificationsBell";
@@ -59,45 +59,28 @@ const Header = ({ sidebarOpen, setSidebarOpen }) => {
   return (
     <header className="fixed top-0 left-0 right-0 h-14 bg-white z-30 border-b border-gray-200">
       <div className="flex items-center justify-between h-full px-4 sm:px-6 xl:ml-64">
-        {/* Left Section */}
-        <div className="flex items-center gap-4 min-w-0">
+        {/* Left */}
+        <div className="flex items-center gap-4">
           <button
             className="xl:hidden p-1.5 rounded-md hover:bg-gray-100"
             onClick={() => setSidebarOpen(true)}
           >
             <Menu size={18} className="text-gray-600" />
           </button>
-
-          {/* <div className="hidden sm:flex items-center gap-2">
-            <button className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md">
-              <Home size={16} />
-            </button>
-            <button className="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-md">
-              <ExternalLink size={16} />
-            </button>
-          </div> */}
-
-          {/* <div className="hidden sm:flex items-center truncate">
-            <span className="text-sm text-gray-500 truncate">Dashboard</span>
-            <span className="text-sm text-gray-400 mx-2">/</span>
-            <span className="text-sm font-medium text-gray-800 truncate">
-              Overview
-            </span>
-          </div> */}
         </div>
 
-        {/* Right Section */}
+        {/* Right */}
         <div className="flex items-center gap-2">
-          {/* ✅ Notification Bell */}
           <NotificationBell />
 
-          {/* User Dropdown */}
+          {/* User Menu */}
           <div className="relative" ref={userRef}>
             <button
               onClick={() => setShowUserMenu(!showUserMenu)}
               className="flex items-center gap-2 px-2 py-1 hover:bg-gray-100 rounded-md transition-colors"
             >
-              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 overflow-hidden flex items-center justify-center text-sm font-semibold text-white shadow-sm">
+              {/* ✅ UPDATED COLOR */}
+              <div className="w-8 h-8 rounded-full bg-[#E57272] flex items-center justify-center text-sm font-semibold text-white shadow-sm">
                 {getUserInitials()}
               </div>
 
@@ -118,6 +101,7 @@ const Header = ({ sidebarOpen, setSidebarOpen }) => {
                     {getUserEmail()}
                   </p>
                 </div>
+
                 <button
                   onClick={() => {
                     navigate("/profile");
@@ -128,7 +112,9 @@ const Header = ({ sidebarOpen, setSidebarOpen }) => {
                   <User2 size={16} className="mr-3" />
                   View Profile
                 </button>
-                <div className="border-t border-gray-100"></div>
+
+                <div className="border-t border-gray-100" />
+
                 <button
                   onClick={handleLogout}
                   className="flex items-center w-full px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors"
