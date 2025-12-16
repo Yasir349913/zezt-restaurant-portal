@@ -7,6 +7,7 @@ import {
 } from "../../../api/services/Dealsservice";
 import { useRestaurant } from "../../../context/RestaurantContext";
 import DealModal from "./DealModel";
+import Loader from "../Common/Loader";
 
 const DealsTable = ({ refreshTrigger, filteredDeals = null }) => {
   const { restaurantId } = useRestaurant();
@@ -31,7 +32,11 @@ const DealsTable = ({ refreshTrigger, filteredDeals = null }) => {
   const DEALS_PER_PAGE = 10;
 
   const fetchDeals = () => {
-    if (!restaurantId) return;
+    if (!restaurantId) {
+      setLoading(false);
+      setDealsData([]);
+      return;
+    }
 
     setLoading(true);
     getAllDealsForCurrentMonth(restaurantId)
@@ -39,9 +44,10 @@ const DealsTable = ({ refreshTrigger, filteredDeals = null }) => {
         const dealsArray = Array.isArray(data) ? data : data?.deals || [];
         setDealsData(dealsArray);
       })
-      .catch((err) =>
-        console.error("Failed to fetch deals for current month:", err)
-      )
+      .catch((err) => {
+        console.error("Failed to fetch deals for current month:", err);
+        setDealsData([]);
+      })
       .finally(() => setLoading(false));
   };
 
@@ -278,16 +284,38 @@ const DealsTable = ({ refreshTrigger, filteredDeals = null }) => {
 
   if (loading) {
     return (
-      <div className="bg-white rounded-lg shadow-sm p-4 text-center text-gray-500">
-        Loading deals...
+      <div className="bg-white rounded-lg shadow-sm p-8 flex items-center justify-center">
+        <Loader size="md" text="Loading deals..." />
       </div>
     );
   }
 
   if (dealsData.length === 0) {
     return (
-      <div className="bg-white rounded-lg shadow-sm p-4 text-center text-gray-500">
-        No deals available for this month.
+      <div className="bg-white rounded-lg shadow-sm p-8">
+        <div className="text-center">
+          <svg
+            className="w-16 h-16 text-gray-300 mx-auto mb-3"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={1.5}
+              d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"
+            />
+          </svg>
+          <p className="text-gray-500 text-sm font-medium mb-1">
+            No deals available
+          </p>
+          <p className="text-gray-400 text-xs">
+            {!restaurantId
+              ? "Create a restaurant to start adding deals"
+              : "Create your first deal to get started"}
+          </p>
+        </div>
       </div>
     );
   }
