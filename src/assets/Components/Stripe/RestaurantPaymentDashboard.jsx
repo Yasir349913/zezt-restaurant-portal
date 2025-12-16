@@ -13,7 +13,6 @@ import {
   RefreshCw,
 } from "lucide-react";
 import Loader from "../Common/Loader";
-
 const RestaurantPaymentDashboard = () => {
   const { restaurantId } = useRestaurant();
   const [restaurantData, setRestaurantData] = useState(null);
@@ -22,11 +21,17 @@ const RestaurantPaymentDashboard = () => {
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState("overview");
   const [hasActiveSubscription, setHasActiveSubscription] = useState(false);
+  const [hasRestaurant, setHasRestaurant] = useState(false);
 
-  // Check if restaurant exists (from context or localStorage)
-  const fallbackId =
-    typeof window !== "undefined" ? localStorage.getItem("restaurantId") : null;
-  const hasRestaurant = restaurantId || fallbackId;
+  // Check if restaurant exists on mount and when restaurantId changes
+  useEffect(() => {
+    const fallbackId =
+      typeof window !== "undefined"
+        ? localStorage.getItem("restaurantId")
+        : null;
+    const idExists = !!(restaurantId || fallbackId);
+    setHasRestaurant(idExists);
+  }, [restaurantId]);
 
   useEffect(() => {
     fetchRestaurantData();
@@ -39,11 +44,16 @@ const RestaurantPaymentDashboard = () => {
     setError(null);
 
     // Check localStorage fallback
+    const fallbackId =
+      typeof window !== "undefined"
+        ? localStorage.getItem("restaurantId")
+        : null;
     const idToUse = restaurantId || fallbackId;
 
     try {
       if (!idToUse) {
         // No restaurant - set default empty data
+        setHasRestaurant(false);
         setRestaurantData({
           name: "Restaurant",
           plan: "trial",
@@ -83,6 +93,15 @@ const RestaurantPaymentDashboard = () => {
     } catch (error) {
       console.error("Error fetching restaurant data:", error);
       setError(error.message);
+
+      // If error suggests restaurant not found, set hasRestaurant to false
+      if (
+        error.message?.includes("not found") ||
+        error.response?.status === 404
+      ) {
+        setHasRestaurant(false);
+      }
+
       // Fallback default data
       setRestaurantData({
         name: "Restaurant",
@@ -106,6 +125,10 @@ const RestaurantPaymentDashboard = () => {
 
   // ✅ Check Stripe status
   const checkStripeStatus = async () => {
+    const fallbackId =
+      typeof window !== "undefined"
+        ? localStorage.getItem("restaurantId")
+        : null;
     const idToUse = restaurantId || fallbackId;
 
     if (!idToUse) {
