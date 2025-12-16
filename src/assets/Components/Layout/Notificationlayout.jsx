@@ -150,11 +150,11 @@ export default function Notificationslayout() {
                     : "bg-yellow-100 text-yellow-700"
                 }`}
               >
-                {/* <span
+                <span
                   className={`w-2 h-2 rounded-full ${
                     isConnected ? "bg-green-500" : "bg-yellow-500"
                   }`}
-                ></span> */}
+                ></span>
                 {isConnected ? "Connected" : "Reconnecting..."}
               </div>
             </div>
