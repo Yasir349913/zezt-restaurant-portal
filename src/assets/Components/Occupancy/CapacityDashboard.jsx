@@ -1,4 +1,4 @@
-// CapacityDashboard.jsx - Complete with Real API Integration
+// CapacityDashboard.jsx - Updated with Loader and no-restaurant handling
 import React, { useState, useEffect } from "react";
 import {
   AlertTriangle,
@@ -21,6 +21,8 @@ import {
   updateRestaurantCapacity,
 } from "../../../api/services/Occupancyservices";
 
+import Loader from "../Common/Loader";
+
 const CapacityDashboard = () => {
   const { restaurantId } = useRestaurant();
 
@@ -37,11 +39,26 @@ const CapacityDashboard = () => {
   const [error, setError] = useState(null);
   const [needsSetup, setNeedsSetup] = useState(false);
 
+  // Default empty dashboard data
+  const getDefaultDashboardData = () => ({
+    restaurant: {
+      name: "Restaurant",
+      totalCapacity: 0,
+    },
+    summary: {
+      activeDeals: 0,
+      totalWarnings: 0,
+      criticalWarnings: 0,
+      healthScore: 0,
+      healthStatus: "good",
+    },
+    recommendations: [],
+    deals: [],
+  });
+
   // Fetch dashboard data on mount
   useEffect(() => {
-    if (restaurantId) {
-      fetchDashboardData();
-    }
+    fetchDashboardData();
   }, [restaurantId]);
 
   // Fetch tab-specific data when tab changes
@@ -63,11 +80,25 @@ const CapacityDashboard = () => {
 
   // API 1: Get Dashboard Overview
   const fetchDashboardData = async () => {
+    setLoading(true);
+    setError(null);
+    setNeedsSetup(false);
+
+    // Check localStorage fallback
+    const fallbackId =
+      typeof window !== "undefined"
+        ? localStorage.getItem("restaurantId")
+        : null;
+    const idToUse = restaurantId || fallbackId;
+
     try {
-      setLoading(true);
-      setError(null);
-      setNeedsSetup(false);
-      const data = await getCapacityOverview(restaurantId);
+      if (!idToUse) {
+        // No restaurant - set default empty data
+        setDashboardData(getDefaultDashboardData());
+        return;
+      }
+
+      const data = await getCapacityOverview(idToUse);
       setDashboardData(data);
       setNewCapacity(data.restaurant.totalCapacity.toString());
     } catch (err) {
@@ -78,7 +109,10 @@ const CapacityDashboard = () => {
         setNeedsSetup(true);
         setShowCapacityModal(true);
       } else {
+        console.error("Fetch dashboard error:", err);
         setError(err.message || "Failed to load dashboard");
+        // On error, show default empty data (graceful fallback)
+        setDashboardData(getDefaultDashboardData());
       }
     } finally {
       setLoading(false);
@@ -87,10 +121,21 @@ const CapacityDashboard = () => {
 
   // API 2: Get Capacity Warnings
   const fetchWarningsData = async () => {
+    const fallbackId =
+      typeof window !== "undefined"
+        ? localStorage.getItem("restaurantId")
+        : null;
+    const idToUse = restaurantId || fallbackId;
+
+    if (!idToUse) return;
+
     try {
       setTabLoading(true);
-      const data = await getCapacityWarnings(restaurantId);
+      const data = await getCapacityWarnings(idToUse);
       setWarningsData(data);
+    } catch (err) {
+      console.error("Fetch warnings error:", err);
+      setWarningsData({ warnings: [] });
     } finally {
       setTabLoading(false);
     }
@@ -98,18 +143,25 @@ const CapacityDashboard = () => {
 
   // API 3: Get Capacity Utilization
   const fetchUtilizationData = async () => {
+    const fallbackId =
+      typeof window !== "undefined"
+        ? localStorage.getItem("restaurantId")
+        : null;
+    const idToUse = restaurantId || fallbackId;
+
+    if (!idToUse) return;
+
     try {
       setTabLoading(true);
       const today = new Date().toISOString().split("T")[0];
       const thirtyDays = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
         .toISOString()
         .split("T")[0];
-      const data = await getCapacityUtilization(
-        restaurantId,
-        today,
-        thirtyDays
-      );
+      const data = await getCapacityUtilization(idToUse, today, thirtyDays);
       setUtilizationData(data);
+    } catch (err) {
+      console.error("Fetch utilization error:", err);
+      setUtilizationData(null);
     } finally {
       setTabLoading(false);
     }
@@ -117,14 +169,25 @@ const CapacityDashboard = () => {
 
   // API 4: Get Capacity Timeline
   const fetchTimelineData = async () => {
+    const fallbackId =
+      typeof window !== "undefined"
+        ? localStorage.getItem("restaurantId")
+        : null;
+    const idToUse = restaurantId || fallbackId;
+
+    if (!idToUse) return;
+
     try {
       setTabLoading(true);
       const today = new Date().toISOString().split("T")[0];
       const twoWeeks = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000)
         .toISOString()
         .split("T")[0];
-      const data = await getCapacityTimeline(restaurantId, today, twoWeeks);
+      const data = await getCapacityTimeline(idToUse, today, twoWeeks);
       setTimelineData(data.timeline || []);
+    } catch (err) {
+      console.error("Fetch timeline error:", err);
+      setTimelineData([]);
     } finally {
       setTabLoading(false);
     }
@@ -132,13 +195,25 @@ const CapacityDashboard = () => {
 
   // API 5: Update Restaurant Capacity
   const handleUpdateCapacity = async () => {
+    const fallbackId =
+      typeof window !== "undefined"
+        ? localStorage.getItem("restaurantId")
+        : null;
+    const idToUse = restaurantId || fallbackId;
+
+    if (!idToUse) {
+      alert("Please create a restaurant first");
+      return;
+    }
+
     const capacity = parseInt(newCapacity);
     if (isNaN(capacity) || capacity < 1) {
       alert("Please enter valid capacity");
       return;
     }
+
     try {
-      const result = await updateRestaurantCapacity(restaurantId, capacity);
+      const result = await updateRestaurantCapacity(idToUse, capacity);
       if (result.success) {
         setShowCapacityModal(false);
         setNeedsSetup(false);
@@ -185,20 +260,22 @@ const CapacityDashboard = () => {
       day: "numeric",
     });
 
+  // Check if restaurant exists
+  const fallbackId =
+    typeof window !== "undefined" ? localStorage.getItem("restaurantId") : null;
+  const hasRestaurant = restaurantId || fallbackId;
+
   // Loading state
   if (loading && !needsSetup) {
     return (
       <div className="max-w-7xl mx-auto p-6 flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading capacity data...</p>
-        </div>
+        <Loader size="lg" text="Loading capacity data..." />
       </div>
     );
   }
 
   // Setup screen
-  if (needsSetup) {
+  if (needsSetup && hasRestaurant) {
     return (
       <div className="max-w-7xl mx-auto p-6 min-h-screen flex items-center justify-center">
         <div className="max-w-2xl w-full">
@@ -244,8 +321,8 @@ const CapacityDashboard = () => {
     );
   }
 
-  // Error state
-  if (error && !needsSetup) {
+  // Error state (only for API errors, not missing restaurant)
+  if (error && hasRestaurant && !needsSetup) {
     return (
       <div className="max-w-7xl mx-auto p-6">
         <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded">
@@ -275,7 +352,9 @@ const CapacityDashboard = () => {
         </div>
         <button
           onClick={() => setShowCapacityModal(true)}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
+          disabled={!hasRestaurant}
+          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+          title={!hasRestaurant ? "Please create a restaurant first" : ""}
         >
           <Settings className="w-4 h-4" />
           Update Capacity
@@ -405,11 +484,17 @@ const CapacityDashboard = () => {
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
-                className={`px-4 py-3 font-medium border-b-2 ${
+                disabled={!hasRestaurant}
+                className={`px-4 py-3 font-medium border-b-2 transition-all ${
                   activeTab === tab
                     ? "border-blue-600 text-blue-600"
                     : "border-transparent text-gray-600"
+                } ${
+                  !hasRestaurant
+                    ? "opacity-50 cursor-not-allowed"
+                    : "hover:text-blue-600"
                 }`}
+                title={!hasRestaurant ? "Please create a restaurant first" : ""}
               >
                 {tab.charAt(0).toUpperCase() + tab.slice(1)}
               </button>
@@ -420,8 +505,7 @@ const CapacityDashboard = () => {
         <div className="p-6">
           {tabLoading && (
             <div className="text-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-              <p className="mt-2 text-gray-600">Loading...</p>
+              <Loader size="md" text="Loading..." />
             </div>
           )}
 
@@ -468,6 +552,18 @@ const CapacityDashboard = () => {
             </div>
           )}
 
+          {activeTab === "overview" && !tabLoading && !utilizationData && (
+            <div className="text-center py-12">
+              <BarChart3 className="w-16 h-16 text-gray-300 mx-auto mb-3" />
+              <p className="text-sm text-gray-500 font-medium mb-1">
+                No utilization data available
+              </p>
+              <p className="text-xs text-gray-400">
+                Data will appear once you have active deals
+              </p>
+            </div>
+          )}
+
           {/* Timeline Tab */}
           {activeTab === "timeline" && !tabLoading && (
             <div className="space-y-4">
@@ -492,6 +588,9 @@ const CapacityDashboard = () => {
                 <div className="text-center py-12">
                   <Clock className="w-16 h-16 text-gray-400 mx-auto mb-4" />
                   <p className="text-lg font-medium">No Timeline Data</p>
+                  <p className="text-sm text-gray-500 mt-2">
+                    Timeline will appear once you have active deals
+                  </p>
                 </div>
               ) : (
                 timelineData.map((slot, idx) => {
@@ -663,6 +762,9 @@ const CapacityDashboard = () => {
                 <div className="text-center py-12">
                   <Calendar className="w-16 h-16 text-gray-400 mx-auto mb-4" />
                   <p className="text-lg font-medium">No Active Deals</p>
+                  <p className="text-sm text-gray-500 mt-2">
+                    Create deals to see capacity utilization
+                  </p>
                 </div>
               ) : (
                 dashboardData.deals.map((deal, idx) => (
@@ -733,7 +835,7 @@ const CapacityDashboard = () => {
       </div>
 
       {/* Update Capacity Modal */}
-      {showCapacityModal && !needsSetup && (
+      {showCapacityModal && !needsSetup && hasRestaurant && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg p-6 max-w-md w-full shadow-xl">
             <h3 className="text-xl font-semibold mb-4">
