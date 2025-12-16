@@ -80,9 +80,9 @@ export default function HotDealsLayout() {
                   No restaurant created yet
                 </p>
                 <p className="text-sm text-yellow-700 mt-1">
-                  Please create a restaurant to access Hot Deals features. All
-                  buttons and templates will be available once your restaurant
-                  is set up.
+                  Please create a restaurant to access Hot Deals features. Go to
+                  settings in the SideBar on the Left to create a Restaurant
+                  Account.
                 </p>
               </div>
             </div>
