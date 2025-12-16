@@ -10,7 +10,7 @@ const Loader = ({ size = "md", text = "" }) => {
   return (
     <div className="flex flex-col items-center justify-center gap-3">
       <div
-        className={`${sizeClasses[size]} border-gray-300 border-t-blue-500 rounded-full animate-spin`}
+        className={`${sizeClasses[size]} border-gray-300 border-t-[#E57272] rounded-full animate-spin`}
       ></div>
       {text && <p className="text-sm text-gray-600">{text}</p>}
     </div>

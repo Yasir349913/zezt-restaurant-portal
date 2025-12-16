@@ -12,6 +12,7 @@ import {
 } from "recharts";
 import { useRestaurant } from "../../../context/RestaurantContext";
 import { getDashboardData } from "../../../api/Dashbord";
+import Loader from "../Common/Loader";
 
 // helpers
 const dowLabel = (n) =>
@@ -39,14 +40,12 @@ const Revenuegraphs = () => {
   const { restaurantId } = useRestaurant();
   const [loading, setLoading] = useState(true);
   const [dash, setDash] = useState(null);
-  const [error, setError] = useState("");
 
   useEffect(() => {
     let mounted = true;
 
     const load = async () => {
       setLoading(true);
-      setError("");
 
       // fallback to localStorage if context is empty
       const fallbackId =
@@ -64,26 +63,33 @@ const Revenuegraphs = () => {
 
       try {
         if (!idToUse) {
-          throw new Error("No restaurant selected");
+          // No restaurant - set empty dash data
+          if (mounted) {
+            setDash({
+              monthlyRevenue: [],
+              bookingsByDayOfWeek: [],
+            });
+          }
+          return;
         }
 
         const data = await getDashboardData(idToUse);
         if (mounted) setDash(data);
       } catch (e) {
         console.error("Revenuegraphs load error:", e);
-        setError(
-          e?.response?.data?.message || e?.message || "Failed to load graphs"
-        );
+        // Even on error, show empty graphs instead of error message
+        if (mounted) {
+          setDash({
+            monthlyRevenue: [],
+            bookingsByDayOfWeek: [],
+          });
+        }
       } finally {
         if (mounted) setLoading(false);
       }
     };
 
-    if (restaurantId || localStorage.getItem("restaurantId")) load();
-    else {
-      setLoading(false);
-      setError("No restaurant selected. Create or select a restaurant first.");
-    }
+    load();
 
     return () => {
       mounted = false;
@@ -122,9 +128,28 @@ const Revenuegraphs = () => {
     return null;
   };
 
-  if (loading)
-    return <div className="text-sm text-gray-500">Loading graphs…</div>;
-  if (error) return <div className="text-sm text-red-500">{error}</div>;
+  const EmptyState = ({ title, icon }) => (
+    <div className="h-64 flex flex-col items-center justify-center">
+      <div className="text-gray-300 mb-3">{icon}</div>
+      <p className="text-gray-500 text-sm">{title}</p>
+      <p className="text-gray-400 text-xs mt-1">
+        Data will appear once you have activity
+      </p>
+    </div>
+  );
+
+  if (loading) {
+    return (
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-[14px]">
+        <div className="bg-white rounded-lg p-6 flex items-center justify-center h-80">
+          <Loader size="md" text="Loading revenue data..." />
+        </div>
+        <div className="bg-white rounded-lg p-6 flex items-center justify-center h-80">
+          <Loader size="md" text="Loading booking data..." />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-[14px]">
@@ -142,34 +167,56 @@ const Revenuegraphs = () => {
           </div>
         </div>
 
-        <div className="h-64">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart
-              data={revenueData}
-              margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-            >
-              <XAxis
-                dataKey="month"
-                axisLine={false}
-                tickLine={false}
-                tick={{ fontSize: 12, fill: "#9CA3AF" }}
-              />
-              <YAxis
-                axisLine={false}
-                tickLine={false}
-                tick={{ fontSize: 12, fill: "#9CA3AF" }}
-              />
-              <Line
-                type="monotone"
-                dataKey="totalRevenue"
-                stroke="#F87171"
-                strokeWidth={2}
-                dot={false}
-                activeDot={{ r: 4, fill: "#F87171" }}
-              />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
+        {revenueData.length === 0 ? (
+          <EmptyState
+            title="No revenue data available"
+            icon={
+              <svg
+                className="w-16 h-16"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={1.5}
+                  d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+                />
+              </svg>
+            }
+          />
+        ) : (
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart
+                data={revenueData}
+                margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+              >
+                <XAxis
+                  dataKey="month"
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fontSize: 12, fill: "#9CA3AF" }}
+                />
+                <YAxis
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fontSize: 12, fill: "#9CA3AF" }}
+                />
+                <Tooltip content={<CustomTooltip />} />
+                <Line
+                  type="monotone"
+                  dataKey="totalRevenue"
+                  stroke="#F87171"
+                  strokeWidth={2}
+                  dot={false}
+                  activeDot={{ r: 4, fill: "#F87171" }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        )}
       </div>
 
       {/* Weekly Booking Trends */}
@@ -180,28 +227,54 @@ const Revenuegraphs = () => {
           </h3>
         </div>
 
-        <div className="h-64">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart
-              data={bookingData}
-              margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-            >
-              <XAxis
-                dataKey="day"
-                axisLine={false}
-                tickLine={false}
-                tick={{ fontSize: 12, fill: "#9CA3AF" }}
-              />
-              <YAxis
-                axisLine={false}
-                tickLine={false}
-                tick={{ fontSize: 12, fill: "#9CA3AF" }}
-              />
-              <Tooltip content={<CustomTooltip />} />
-              <Bar dataKey="bookings" radius={[4, 4, 0, 0]} barSize={40} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
+        {bookingData.length === 0 ? (
+          <EmptyState
+            title="No booking data available"
+            icon={
+              <svg
+                className="w-16 h-16"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={1.5}
+                  d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                />
+              </svg>
+            }
+          />
+        ) : (
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                data={bookingData}
+                margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+              >
+                <XAxis
+                  dataKey="day"
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fontSize: 12, fill: "#9CA3AF" }}
+                />
+                <YAxis
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fontSize: 12, fill: "#9CA3AF" }}
+                />
+                <Tooltip content={<CustomTooltip />} />
+                <Bar
+                  dataKey="bookings"
+                  fill="#E57272"
+                  radius={[4, 4, 0, 0]}
+                  barSize={40}
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        )}
       </div>
     </div>
   );

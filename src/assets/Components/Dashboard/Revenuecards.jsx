@@ -3,19 +3,39 @@ import React, { useEffect, useState } from "react";
 import Cards from "./Cards";
 import { useRestaurant } from "../../../context/RestaurantContext";
 import { getDashboardData } from "../../../api/Dashbord";
+import Loader from "../Common/Loader";
 
 const Revenuecards = () => {
   const { restaurantId } = useRestaurant();
   const [loading, setLoading] = useState(true);
-  const [cards, setCards] = useState([]);
-  const [error, setError] = useState("");
+  const [cards, setCards] = useState([
+    {
+      name: "Current Month Revenue",
+      number: "£ 0",
+      percentage: 0,
+    },
+    {
+      name: "Active Deals",
+      number: "0",
+      percentage: 0,
+    },
+    {
+      name: "Bookings Today",
+      number: "0",
+      percentage: 0,
+    },
+    {
+      name: "Avg Rating",
+      number: "0.0",
+      percentage: 0,
+    },
+  ]);
 
   useEffect(() => {
     let mounted = true;
 
     const load = async () => {
       setLoading(true);
-      setError("");
 
       // fallback to localStorage if context is empty
       const fallbackId =
@@ -33,7 +53,32 @@ const Revenuecards = () => {
 
       try {
         if (!idToUse) {
-          throw new Error("No restaurant selected");
+          // No restaurant - show default zero values
+          if (mounted) {
+            setCards([
+              {
+                name: "Current Month Revenue",
+                number: "£ 0",
+                percentage: 0,
+              },
+              {
+                name: "Active Deals",
+                number: "0",
+                percentage: 0,
+              },
+              {
+                name: "Bookings Today",
+                number: "0",
+                percentage: 0,
+              },
+              {
+                name: "Avg Rating",
+                number: "0.0",
+                percentage: 0,
+              },
+            ]);
+          }
+          return;
         }
 
         const dash = await getDashboardData(idToUse);
@@ -42,7 +87,7 @@ const Revenuecards = () => {
 
         setCards([
           {
-            name: "Current Month  Revenue",
+            name: "Current Month Revenue",
             number: `£ ${Number(dash.totalRevenue || 0).toLocaleString()}`,
             percentage: 0,
           },
@@ -64,29 +109,50 @@ const Revenuecards = () => {
         ]);
       } catch (e) {
         console.error("Revenuecards load error:", e);
-        setError(
-          e?.response?.data?.message || e?.message || "Failed to load dashboard"
-        );
+        // Even on error, show zero values instead of error message
+        if (mounted) {
+          setCards([
+            {
+              name: "Current Month Revenue",
+              number: "£ 0",
+              percentage: 0,
+            },
+            {
+              name: "Active Deals",
+              number: "0",
+              percentage: 0,
+            },
+            {
+              name: "Bookings Today",
+              number: "0",
+              percentage: 0,
+            },
+            {
+              name: "Avg Rating",
+              number: "0.0",
+              percentage: 0,
+            },
+          ]);
+        }
       } finally {
         if (mounted) setLoading(false);
       }
     };
 
-    if (restaurantId || localStorage.getItem("restaurantId")) load();
-    else {
-      setLoading(false);
-      setCards([]);
-      setError("No restaurant selected. Create or select a restaurant first.");
-    }
+    load();
 
     return () => {
       mounted = false;
     };
   }, [restaurantId]);
 
-  if (loading)
-    return <div className="text-sm text-gray-500">Loading dashboard…</div>;
-  if (error) return <div className="text-sm text-red-500">{error}</div>;
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader size="md" text="Loading dashboard data..." />
+      </div>
+    );
+  }
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-[18px]">
