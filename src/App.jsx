@@ -21,6 +21,7 @@ import Notificationslayout from "./assets/Components/Layout/Notificationlayout";
 import HotDealsLayout from "./assets/Components/Layout/Hotdealslayout";
 import StripeCallback from "./assets/Components/Stripe/StripeCallback";
 import StripeRefresh from "./assets/Components/Stripe/StripeRefresh";
+import UserProfile from "./assets/Pages/UserProfile"; // ✅ ADD THIS IMPORT
 import { SocketProvider } from "./context/SocketContext";
 
 const ProtectedRoute = ({ children }) => {
@@ -130,6 +131,8 @@ export default function App() {
             }
           >
             <Route path="/dashboard" element={<Dashboardlayout />} />
+            <Route path="/profile" element={<UserProfile />} />{" "}
+            {/* ✅ ADD THIS ROUTE */}
             <Route path="/deals" element={<Dealslayout />} />
             <Route path="/hot-deals" element={<HotDealsLayout />} />
             <Route path="/bookings" element={<Bookingslayout />} />
