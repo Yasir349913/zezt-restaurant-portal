@@ -1,4 +1,4 @@
-// src/components/Sidebar.jsx
+// src/assets/Components/Common/Sidebar.jsx
 import React, { useState } from "react";
 import {
   LayoutDashboard,
@@ -14,22 +14,21 @@ import {
   X,
   LogOut,
   CreditCard,
-  Zap, // NEW: Import for Hot Deals icon
+  Zap,
 } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { logoutUserApi } from "../../../api/auth";
+import { useSocket } from "../../../context/SocketContext";
 
-// ✅ ADDED: Hot Deals item
 const navItems = [
   { path: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { path: "/deals", label: "Deals", icon: BookOpen },
-  { path: "/hot-deals", label: "Hot Deals", icon: Zap }, // NEW
+  { path: "/hot-deals", label: "Hot Deals", icon: Zap },
   { path: "/bookings", label: "Bookings", icon: ClipboardList },
-
   { path: "/analytics", label: "Analytics", icon: FileText },
   { path: "/revenue", label: "Revenue", icon: CheckSquare },
   { path: "/payments", label: "Payments", icon: CreditCard },
-  { path: "/messages", label: "Messages", icon: MessageSquare },
+  { path: "/messages", label: "Messages", icon: MessageSquare, hasBadge: true }, // ✅ Mark messages as having badge
   { path: "/occupancy", label: "Occupancy", icon: Building2 },
   { path: "/notifications", label: "Notifications", icon: Bell },
   { path: "/settings", label: "Settings", icon: Settings },
@@ -41,7 +40,15 @@ const Sidebar = ({ open, setOpen }) => {
   const currentPath = location.pathname;
   const [loadingLogout, setLoadingLogout] = useState(false);
 
+  // ✅ Get unread message count from socket context
+  const { unreadMessageCount, markAllMessagesAsRead } = useSocket();
+
   const handleNavClick = (path) => {
+    // ✅ If navigating to messages page, clear the message badge
+    if (path === "/messages" && unreadMessageCount > 0) {
+      markAllMessagesAsRead();
+    }
+
     if (window.innerWidth < 1280) setOpen(false);
     navigate(path);
   };
@@ -100,13 +107,17 @@ const Sidebar = ({ open, setOpen }) => {
         <div className="flex-1 min-h-0">
           <nav className="h-full px-4 py-4">
             <div className="h-full overflow-y-auto space-y-2 pr-2 beautiful-scroll">
-              {navItems.map(({ path, label, icon: Icon }) => {
+              {navItems.map(({ path, label, icon: Icon, hasBadge }) => {
                 const isActive = currentPath === path;
+
+                // ✅ Show badge only for messages item
+                const showBadge = hasBadge && unreadMessageCount > 0;
+
                 return (
                   <button
                     key={path}
                     onClick={() => handleNavClick(path)}
-                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors text-left ${
+                    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors text-left relative ${
                       isActive
                         ? "text-white bg-[#E57272]"
                         : "text-gray-600 hover:bg-gray-50 hover:text-gray-800"
@@ -116,7 +127,25 @@ const Sidebar = ({ open, setOpen }) => {
                       size={18}
                       className={isActive ? "text-white" : "text-gray-500"}
                     />
-                    <span className="font-medium text-sm">{label}</span>
+                    <span className="font-medium text-sm flex-1">{label}</span>
+
+                    {/* ✅ Message Badge */}
+                    {showBadge && (
+                      <span
+                        className={`
+                        inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 
+                        text-[10px] font-bold rounded-full
+                        ${
+                          isActive
+                            ? "bg-white text-[#E57272]"
+                            : "bg-[#E57272] text-white"
+                        }
+                        shadow-sm
+                      `}
+                      >
+                        {unreadMessageCount > 99 ? "99+" : unreadMessageCount}
+                      </span>
+                    )}
                   </button>
                 );
               })}
@@ -140,24 +169,13 @@ const Sidebar = ({ open, setOpen }) => {
         </div>
       </aside>
 
-      {/* Mobile overlay */}
+      {/* Overlay for mobile */}
       {open && (
         <div
           className="fixed inset-0 bg-black bg-opacity-50 z-30 xl:hidden"
           onClick={() => setOpen(false)}
-        />
+        ></div>
       )}
-
-      <style jsx>{`
-        .beautiful-scroll::-webkit-scrollbar {
-          display: none;
-        }
-
-        .beautiful-scroll {
-          -ms-overflow-style: none;
-          scrollbar-width: none;
-        }
-      `}</style>
     </>
   );
 };
