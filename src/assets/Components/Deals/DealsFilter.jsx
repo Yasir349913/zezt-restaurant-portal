@@ -73,7 +73,7 @@ const DealsFilter = ({ onFilterApplied, refreshTrigger }) => {
     setDropdownStates((prev) => ({ ...prev, [filterType]: false }));
   };
 
-  const resetFilters = () => {
+  const resetFilters = async () => {
     const reset = {
       dateRange: "All Time",
       deal: "All Deals",
@@ -81,7 +81,9 @@ const DealsFilter = ({ onFilterApplied, refreshTrigger }) => {
     };
     setFilters(reset);
     setFiltersApplied(false);
-    applyFilters(reset);
+    
+    // Apply reset filters to fetch all data
+    await applyFilters(reset, true);
   };
 
   // Convert dateRange string to startDate/endDate
@@ -97,7 +99,7 @@ const DealsFilter = ({ onFilterApplied, refreshTrigger }) => {
     };
   };
 
-  const applyFilters = async (customFilters) => {
+  const applyFilters = async (customFilters, isReset = false) => {
     if (!restaurantId) return;
     const activeFilters = customFilters || filters;
 
@@ -119,9 +121,9 @@ const DealsFilter = ({ onFilterApplied, refreshTrigger }) => {
       const dealsArray = (res && (res.data ?? res)) || [];
 
       if (onFilterApplied) onFilterApplied(dealsArray);
-
-      // Set filtersApplied to true only if not resetting
-      if (!customFilters) {
+      
+      // Set filtersApplied to true only when applying filters (not resetting)
+      if (!isReset && !customFilters) {
         setFiltersApplied(true);
       }
     } catch (err) {

@@ -91,12 +91,15 @@ const Bookingsfilter = ({ onFilterChange, currentFilters }) => {
   };
 
   const resetFilters = () => {
-    setFilters({
+    const reset = {
       startDate: "",
       endDate: "",
       status: "",
-    });
+    };
+    setFilters(reset);
     setFiltersApplied(false);
+
+    // Apply reset filters to fetch all data
     if (onFilterChange) {
       onFilterChange({});
     }
