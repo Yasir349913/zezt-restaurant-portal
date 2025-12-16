@@ -23,9 +23,10 @@ const DealsFilter = ({ onFilterApplied, refreshTrigger }) => {
 
   const [dealOptions, setDealOptions] = useState(["All Deals"]);
   const [filtersApplied, setFiltersApplied] = useState(false);
+
   const statusOptions = ["All", "Active", "Inactive"];
 
-  // Last 12 months + All Time
+  // Generate last 12 months + "All Time"
   const generateMonthOptions = () => {
     const months = ["All Time"];
     const currentDate = new Date();
@@ -45,7 +46,7 @@ const DealsFilter = ({ onFilterApplied, refreshTrigger }) => {
   };
   const dateRangeOptions = generateMonthOptions();
 
-  // Fetch current month deals for dropdown options
+  // Fetch deals for dropdown
   useEffect(() => {
     if (!restaurantId) return;
 
@@ -73,6 +74,7 @@ const DealsFilter = ({ onFilterApplied, refreshTrigger }) => {
     setDropdownStates((prev) => ({ ...prev, [filterType]: false }));
   };
 
+  // Reset filters
   const resetFilters = async () => {
     const reset = {
       dateRange: "All Time",
@@ -81,8 +83,8 @@ const DealsFilter = ({ onFilterApplied, refreshTrigger }) => {
     };
     setFilters(reset);
     setFiltersApplied(false);
-    
-    // Apply reset filters to fetch all data
+
+    // Apply reset filters
     await applyFilters(reset, true);
   };
 
@@ -99,6 +101,7 @@ const DealsFilter = ({ onFilterApplied, refreshTrigger }) => {
     };
   };
 
+  // Apply filters
   const applyFilters = async (customFilters, isReset = false) => {
     if (!restaurantId) return;
     const activeFilters = customFilters || filters;
@@ -117,15 +120,12 @@ const DealsFilter = ({ onFilterApplied, refreshTrigger }) => {
 
     try {
       const res = await getAllDealsUsingPortalFilters(payload);
-
       const dealsArray = (res && (res.data ?? res)) || [];
 
       if (onFilterApplied) onFilterApplied(dealsArray);
-      
-      // Set filtersApplied to true only when applying filters (not resetting)
-      if (!isReset && !customFilters) {
-        setFiltersApplied(true);
-      }
+
+      // Show Reset button whenever a filter is applied manually
+      if (!isReset) setFiltersApplied(true);
     } catch (err) {
       console.error("Error applying filters:", err);
       if (onFilterApplied) onFilterApplied([]);
