@@ -21,8 +21,12 @@ export default function Dealslayout() {
   const [statusMessage, setStatusMessage] = useState("");
   const [loadingStatus, setLoadingStatus] = useState(true);
 
-  // ✅ New state for restaurant not found error
+  // ✅ State for restaurant not found error
   const [restaurantNotFound, setRestaurantNotFound] = useState(false);
+
+  // ✅ NEW: State for Stripe not connected error
+  const [stripeNotConnected, setStripeNotConnected] = useState(false);
+
   const [errorMessage, setErrorMessage] = useState("");
 
   // ✅ Fetch admin status on component mount
@@ -33,9 +37,10 @@ export default function Dealslayout() {
         const response = await checkAdminStatus();
         console.log("Admin status response:", response);
 
-        // ✅ Check if there's an error field indicating restaurant not found
+        // ✅ Priority 1: Check if restaurant not found
         if (response.error === "Restaurant not found") {
           setRestaurantNotFound(true);
+          setStripeNotConnected(false);
           setErrorMessage(
             response.message || "Please create a restaurant account first."
           );
@@ -44,8 +49,21 @@ export default function Dealslayout() {
           return;
         }
 
-        // ✅ Reset restaurant not found state if no error
+        // ✅ Priority 2: Check if Stripe not connected
+        if (response.error === "Stripe not connected") {
+          setStripeNotConnected(true);
+          setRestaurantNotFound(false);
+          setErrorMessage(
+            response.message || "Please connect your Stripe account first."
+          );
+          setIsApproved(false);
+          setStatusMessage(response.message || "");
+          return;
+        }
+
+        // ✅ Reset error states if no errors
         setRestaurantNotFound(false);
+        setStripeNotConnected(false);
         setErrorMessage("");
 
         setAdminStatus(response.admin_status);
@@ -56,12 +74,21 @@ export default function Dealslayout() {
       } catch (error) {
         console.error("Failed to fetch admin status:", error);
 
-        // ✅ Check if error response contains restaurant not found
-        if (error?.response?.data?.error === "Restaurant not found") {
+        // ✅ Check error response for specific errors
+        const errorData = error?.response?.data;
+
+        if (errorData?.error === "Restaurant not found") {
           setRestaurantNotFound(true);
+          setStripeNotConnected(false);
           setErrorMessage(
-            error.response.data.message ||
-              "Please create a restaurant account first."
+            errorData.message || "Please create a restaurant account first."
+          );
+          setIsApproved(false);
+        } else if (errorData?.error === "Stripe not connected") {
+          setStripeNotConnected(true);
+          setRestaurantNotFound(false);
+          setErrorMessage(
+            errorData.message || "Please connect your Stripe account first."
           );
           setIsApproved(false);
         } else {
@@ -119,37 +146,52 @@ export default function Dealslayout() {
         message: errorMessage,
         canCreateDeal: false,
         showBanner: true,
+        bannerType: "error", // red banner
+      };
+    }
+
+    // ✅ Priority 2: Stripe not connected
+    if (stripeNotConnected) {
+      return {
+        title: "Stripe Account Not Connected",
+        message: errorMessage,
+        canCreateDeal: false,
+        showBanner: true,
+        bannerType: "error", // red banner
       };
     }
 
     if (!loadingStatus && statusMessage) {
-      // Scenario 2: Restaurant not approved (pending)
+      // Scenario 3: Restaurant not approved (pending)
       if (!isApproved && adminStatus === "pending") {
         return {
           title: "Restaurant Approval Pending",
           message: statusMessage,
           canCreateDeal: false,
           showBanner: true,
+          bannerType: "warning", // yellow banner
         };
       }
 
-      // Scenario 3: Trial period ended
+      // Scenario 4: Trial period ended
       if (hasTrialEnded) {
         return {
           title: "Trial Period Expired",
           message: statusMessage,
           canCreateDeal: false,
           showBanner: true,
+          bannerType: "warning", // yellow banner
         };
       }
 
-      // Scenario 4: Subscription inactive
+      // Scenario 5: Subscription inactive
       if (!isSubscriptionActive) {
         return {
           title: "Subscription Inactive",
           message: statusMessage,
           canCreateDeal: false,
           showBanner: true,
+          bannerType: "warning", // yellow banner
         };
       }
     }
@@ -160,6 +202,7 @@ export default function Dealslayout() {
       message: "",
       canCreateDeal: true,
       showBanner: false,
+      bannerType: null,
     };
   };
 
@@ -211,11 +254,11 @@ export default function Dealslayout() {
           </div>
         </div>
 
-        {/* ✅ Banner with appropriate message for each scenario */}
+        {/* ✅ Banner with appropriate styling based on error type */}
         {!loadingStatus && statusInfo.showBanner && statusInfo.message && (
           <div
             className={`border-l-4 p-4 rounded-r-lg ${
-              restaurantNotFound
+              statusInfo.bannerType === "error"
                 ? "bg-red-50 border-red-400"
                 : "bg-yellow-50 border-yellow-400"
             }`}
@@ -224,20 +267,26 @@ export default function Dealslayout() {
               <AlertCircle
                 size={20}
                 className={`flex-shrink-0 mt-0.5 ${
-                  restaurantNotFound ? "text-red-600" : "text-yellow-600"
+                  statusInfo.bannerType === "error"
+                    ? "text-red-600"
+                    : "text-yellow-600"
                 }`}
               />
               <div className="ml-3">
                 <h3
                   className={`text-sm font-medium ${
-                    restaurantNotFound ? "text-red-800" : "text-yellow-800"
+                    statusInfo.bannerType === "error"
+                      ? "text-red-800"
+                      : "text-yellow-800"
                   }`}
                 >
                   {statusInfo.title}
                 </h3>
                 <p
                   className={`text-sm mt-1 ${
-                    restaurantNotFound ? "text-red-700" : "text-yellow-700"
+                    statusInfo.bannerType === "error"
+                      ? "text-red-700"
+                      : "text-yellow-700"
                   }`}
                 >
                   {statusInfo.message}
