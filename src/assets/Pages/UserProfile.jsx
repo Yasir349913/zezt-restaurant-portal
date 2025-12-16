@@ -5,7 +5,11 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { fetchUserProfile, updateUserProfileApi } from "../../api/userApi";
 import Loader from "../Components/Common/Loader";
-
+import {
+  validateFirstName,
+  validateLastName,
+  validatePassword,
+} from "../../utils/validators";
 const UserProfile = () => {
   const navigate = useNavigate();
   const { user: authUser, setUser } = useAuth();
@@ -16,6 +20,7 @@ const UserProfile = () => {
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [fieldErrors, setFieldErrors] = useState({});
 
   const [formData, setFormData] = useState({
     firstName: "",
@@ -49,9 +54,37 @@ const UserProfile = () => {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
+
     setFormData((prev) => ({ ...prev, [name]: value }));
     setError("");
     setSuccess("");
+
+    // clear field error on change
+    if (fieldErrors[name]) {
+      setFieldErrors((prev) => ({ ...prev, [name]: "" }));
+    }
+  };
+
+  const validateForm = () => {
+    const errors = {
+      firstName: validateFirstName(formData.firstName),
+      lastName: validateLastName(formData.lastName),
+    };
+
+    // password change is optional
+    if (formData.oldPassword || formData.newPassword) {
+      if (!formData.oldPassword) {
+        errors.oldPassword = "Current password is required";
+      }
+      if (!formData.newPassword) {
+        errors.newPassword = "New password is required";
+      } else {
+        errors.newPassword = validatePassword(formData.newPassword);
+      }
+    }
+
+    setFieldErrors(errors);
+    return !Object.values(errors).some(Boolean);
   };
 
   const handleSubmit = async (e) => {
@@ -59,20 +92,9 @@ const UserProfile = () => {
     setError("");
     setSuccess("");
 
-    if (!formData.firstName.trim() || !formData.lastName.trim()) {
-      setError("First name and last name are required");
+    if (!validateForm()) {
+      setError("Please fix the errors below");
       return;
-    }
-
-    if (formData.oldPassword || formData.newPassword) {
-      if (!formData.oldPassword || !formData.newPassword) {
-        setError("Both current and new password are required");
-        return;
-      }
-      if (formData.newPassword.length < 6) {
-        setError("New password must be at least 6 characters");
-        return;
-      }
     }
 
     try {
@@ -118,7 +140,7 @@ const UserProfile = () => {
     return (f + l).toUpperCase() || "U";
   };
 
-  // ✅ Loader
+  // Loader
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -146,7 +168,7 @@ const UserProfile = () => {
 
         {/* Card */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
-          {/* Avatar Header (SOLID COLOR) */}
+          {/* Avatar Header */}
           <div className="bg-[#E57272] px-8 py-12 text-center">
             <div className="w-24 h-24 mx-auto rounded-full bg-white/20 flex items-center justify-center text-3xl font-bold text-white mb-4">
               {getInitials()}
@@ -159,18 +181,15 @@ const UserProfile = () => {
 
           {/* Form */}
           <div className="p-8">
-            {/* Alerts */}
             {error && (
-              <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm flex justify-between">
+              <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
                 {error}
-                <button onClick={() => setError("")}>×</button>
               </div>
             )}
 
             {success && (
-              <div className="mb-6 p-4 bg-[#FFF5F5] border border-[#E57272] rounded-lg text-[#E57272] text-sm flex justify-between">
+              <div className="mb-6 p-4 bg-[#FFF5F5] border border-[#E57272] rounded-lg text-[#E57272] text-sm">
                 {success}
-                <button onClick={() => setSuccess("")}>×</button>
               </div>
             )}
 
@@ -182,20 +201,31 @@ const UserProfile = () => {
                 </h3>
 
                 <div className="grid grid-cols-2 gap-4">
-                  <input
-                    name="firstName"
-                    value={formData.firstName}
-                    onChange={handleChange}
-                    placeholder="First Name"
-                    className="input"
-                  />
-                  <input
-                    name="lastName"
-                    value={formData.lastName}
-                    onChange={handleChange}
-                    placeholder="Last Name"
-                    className="input"
-                  />
+                  <div>
+                    <input
+                      name="firstName"
+                      value={formData.firstName}
+                      onChange={handleChange}
+                      placeholder="First Name"
+                      className="input"
+                    />
+                    {fieldErrors.firstName && (
+                      <p className="error">{fieldErrors.firstName}</p>
+                    )}
+                  </div>
+
+                  <div>
+                    <input
+                      name="lastName"
+                      value={formData.lastName}
+                      onChange={handleChange}
+                      placeholder="Last Name"
+                      className="input"
+                    />
+                    {fieldErrors.lastName && (
+                      <p className="error">{fieldErrors.lastName}</p>
+                    )}
+                  </div>
                 </div>
 
                 <input
@@ -230,6 +260,9 @@ const UserProfile = () => {
                     >
                       {showCurrentPassword ? <EyeOff /> : <Eye />}
                     </button>
+                    {fieldErrors.oldPassword && (
+                      <p className="error">{fieldErrors.oldPassword}</p>
+                    )}
                   </div>
 
                   <div className="relative">
@@ -248,11 +281,14 @@ const UserProfile = () => {
                     >
                       {showNewPassword ? <EyeOff /> : <Eye />}
                     </button>
+                    {fieldErrors.newPassword && (
+                      <p className="error">{fieldErrors.newPassword}</p>
+                    )}
                   </div>
                 </div>
               </div>
 
-              {/* Save Button */}
+              {/* Save */}
               <div className="flex justify-end">
                 <button
                   type="submit"
@@ -287,6 +323,11 @@ const UserProfile = () => {
           top: 50%;
           transform: translateY(-50%);
           color: #9ca3af;
+        }
+        .error {
+          margin-top: 4px;
+          font-size: 12px;
+          color: #dc2626;
         }
       `}</style>
     </div>
