@@ -6,25 +6,56 @@ import Bookingsfilter from "../Bookings/Bookingsfilter";
 import Bookingstable from "../Bookings/Bookingstable";
 
 export default function Bookingslayout() {
-  const { restaurantId } = useRestaurant(); // ✅ Get restaurant ID
-  const [dashboardData, setDashboardData] = useState(null); // ✅ Store data
-  const [loading, setLoading] = useState(true); // ✅ Loading state
-  const [error, setError] = useState(null); // ✅ Error state
-  const [currentFilters, setCurrentFilters] = useState({}); // ✅ Filter state
+  const { restaurantId } = useRestaurant();
+  const [dashboardData, setDashboardData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [currentFilters, setCurrentFilters] = useState({});
 
   // ✅ Fetch bookings data
   const loadBookings = async (filters = {}) => {
-    if (!restaurantId) return;
+    setLoading(true);
+    setError(null);
+
+    // Check localStorage fallback
+    const fallbackId =
+      typeof window !== "undefined"
+        ? localStorage.getItem("restaurantId")
+        : null;
+    const idToUse = restaurantId || fallbackId;
 
     try {
-      setLoading(true);
-      setError(null);
-      const data = await fetchBookingDashboardData(restaurantId, filters);
-      console.log("Dashboard Data:", data); // Debug
+      if (!idToUse) {
+        // No restaurant - set default empty data
+        setDashboardData({
+          totalBookings: 0,
+          confirmedCount: 0,
+          pendingCount: 0,
+          cancelledCount: 0,
+          noshowCount: 0,
+          totalPartySize: 0,
+          bookings: [],
+        });
+        return;
+      }
+
+      const data = await fetchBookingDashboardData(idToUse, filters);
+      console.log("Dashboard Data:", data);
       setDashboardData(data);
     } catch (err) {
       console.error("Error loading bookings:", err);
       setError(err.message || "Failed to load bookings");
+
+      // On error, show empty data instead of breaking
+      setDashboardData({
+        totalBookings: 0,
+        confirmedCount: 0,
+        pendingCount: 0,
+        cancelledCount: 0,
+        noshowCount: 0,
+        totalPartySize: 0,
+        bookings: [],
+      });
     } finally {
       setLoading(false);
     }
@@ -46,20 +77,10 @@ export default function Bookingslayout() {
     loadBookings(currentFilters);
   };
 
-  // ✅ Check restaurant ID
-  if (!restaurantId) {
-    return (
-      <div className="bg-gray-100 min-h-screen xl:ml-64 pt-14">
-        <div className="p-6">
-          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-            <p className="text-yellow-800">
-              Restaurant ID not found. Please log in again.
-            </p>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  // Check if restaurant exists (from context or localStorage)
+  const fallbackId =
+    typeof window !== "undefined" ? localStorage.getItem("restaurantId") : null;
+  const hasRestaurant = restaurantId || fallbackId;
 
   return (
     <div className="bg-gray-100 min-h-screen xl:ml-64 pt-14">
@@ -90,15 +111,43 @@ export default function Bookingslayout() {
           </button>
         </div>
 
-        {/* Error Message */}
-        {error && (
+        {/* ✅ Warning banner if no restaurant (instead of blocking error) */}
+        {!hasRestaurant && (
+          <div className="bg-yellow-50 border-l-4 border-yellow-400 rounded-lg p-4">
+            <div className="flex items-start">
+              <svg
+                className="w-5 h-5 text-yellow-600 mt-0.5 flex-shrink-0"
+                fill="currentColor"
+                viewBox="0 0 20 20"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
+                  clipRule="evenodd"
+                />
+              </svg>
+              <div className="ml-3">
+                <p className="text-sm font-medium text-yellow-800">
+                  No restaurant created yet
+                </p>
+                <p className="text-sm text-yellow-700 mt-1">
+                  Please create a restaurant to see live booking data. The
+                  dashboard will show placeholder values until then.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Error Message (only for API errors, not missing restaurant) */}
+        {error && hasRestaurant && (
           <div className="bg-red-50 border border-red-200 rounded-lg p-4">
             <p className="text-red-800">❌ {error}</p>
           </div>
         )}
 
-        {/* ✅ Analytics Cards - Pass stats prop */}
-        <Bookingcards stats={dashboardData} />
+        {/* ✅ Analytics Cards - Pass stats and loading prop */}
+        <Bookingcards stats={dashboardData} loading={loading} />
 
         {/* Filter and Table Container */}
         <div className="space-y-6">
@@ -108,25 +157,18 @@ export default function Bookingslayout() {
             currentFilters={currentFilters}
           />
 
-          {/* Table with Loading State */}
-          {loading && !dashboardData ? (
-            <div className="bg-white rounded-lg p-12 text-center shadow-sm">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-              <p className="text-gray-500 mt-4">Loading bookings...</p>
-            </div>
-          ) : (
-            <div className="bg-white rounded-lg p-6 shadow-sm">
-              {/* ✅ Table - Pass bookings and refresh handler */}
-              <Bookingstable
-                bookings={dashboardData?.bookings || []}
-                onRefresh={handleRefresh}
-              />
-            </div>
-          )}
+          {/* ✅ Table - Pass bookings, loading state, and refresh handler */}
+          <div className="bg-white rounded-lg p-6 shadow-sm">
+            <Bookingstable
+              bookings={dashboardData?.bookings || []}
+              onRefresh={handleRefresh}
+              loading={loading}
+            />
+          </div>
         </div>
 
-        {/* Date Range Info */}
-        {dashboardData?.dateRange && (
+        {/* Date Range Info - Only show if we have data and date range */}
+        {dashboardData?.dateRange && dashboardData?.bookings?.length > 0 && (
           <div className="text-sm text-gray-500 text-center bg-white rounded-lg p-3 shadow-sm">
             📅 Showing bookings from{" "}
             <strong>
