@@ -13,6 +13,8 @@ const Bookingsfilter = ({ onFilterChange, currentFilters }) => {
     dateRange: false,
   });
 
+  const [filtersApplied, setFiltersApplied] = useState(false);
+
   const statusOptions = [
     { value: "", label: "All Statuses" },
     { value: "pending", label: "Pending" },
@@ -94,6 +96,7 @@ const Bookingsfilter = ({ onFilterChange, currentFilters }) => {
       endDate: "",
       status: "",
     });
+    setFiltersApplied(false);
     if (onFilterChange) {
       onFilterChange({});
     }
@@ -104,6 +107,8 @@ const Bookingsfilter = ({ onFilterChange, currentFilters }) => {
     if (filters.startDate) cleanFilters.startDate = filters.startDate;
     if (filters.endDate) cleanFilters.endDate = filters.endDate;
     if (filters.status) cleanFilters.status = filters.status;
+
+    setFiltersApplied(true);
 
     if (onFilterChange) {
       onFilterChange(cleanFilters);
@@ -230,16 +235,18 @@ const Bookingsfilter = ({ onFilterChange, currentFilters }) => {
 
       {/* Action Buttons */}
       <div className="flex flex-wrap justify-end gap-2">
-        <button
-          onClick={resetFilters}
-          className="flex items-center gap-2 px-3 py-2 text-sm text-gray-600 hover:text-gray-800"
-        >
-          <X className="w-4 h-4" />
-          Reset
-        </button>
+        {filtersApplied && (
+          <button
+            onClick={resetFilters}
+            className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 bg-gray-100 hover:bg-gray-200 transition-colors rounded-md font-medium border border-gray-300"
+          >
+            <X className="w-4 h-4" />
+            Reset
+          </button>
+        )}
         <button
           onClick={applyFilters}
-          className="px-4 py-2 bg-blue-500 text-white text-sm font-medium rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="px-4 py-2 bg-blue-500 text-white text-sm font-medium rounded-md hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
         >
           Apply Filters
         </button>

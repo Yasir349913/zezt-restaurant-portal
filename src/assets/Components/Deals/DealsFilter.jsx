@@ -22,6 +22,7 @@ const DealsFilter = ({ onFilterApplied, refreshTrigger }) => {
   });
 
   const [dealOptions, setDealOptions] = useState(["All Deals"]);
+  const [filtersApplied, setFiltersApplied] = useState(false);
   const statusOptions = ["All", "Active", "Inactive"];
 
   // Last 12 months + All Time
@@ -79,6 +80,7 @@ const DealsFilter = ({ onFilterApplied, refreshTrigger }) => {
       status: "All",
     };
     setFilters(reset);
+    setFiltersApplied(false);
     applyFilters(reset);
   };
 
@@ -117,6 +119,11 @@ const DealsFilter = ({ onFilterApplied, refreshTrigger }) => {
       const dealsArray = (res && (res.data ?? res)) || [];
 
       if (onFilterApplied) onFilterApplied(dealsArray);
+
+      // Set filtersApplied to true only if not resetting
+      if (!customFilters) {
+        setFiltersApplied(true);
+      }
     } catch (err) {
       console.error("Error applying filters:", err);
       if (onFilterApplied) onFilterApplied([]);
@@ -191,12 +198,14 @@ const DealsFilter = ({ onFilterApplied, refreshTrigger }) => {
         />
       </div>
       <div className="flex flex-wrap justify-end gap-3">
-        <button
-          onClick={resetFilters}
-          className="flex items-center gap-1 text-[13px] text-gray-600 hover:text-gray-800 transition-colors"
-        >
-          <X className="w-[14px] h-[14px]" /> Reset
-        </button>
+        {filtersApplied && (
+          <button
+            onClick={resetFilters}
+            className="flex items-center gap-1 text-[13px] text-gray-700 bg-gray-100 hover:bg-gray-200 transition-colors px-4 py-[6px] rounded font-medium border border-gray-300"
+          >
+            <X className="w-[14px] h-[14px]" /> Reset
+          </button>
+        )}
         <button
           onClick={() => applyFilters()}
           className="text-white bg-[#e57272] hover:opacity-90 transition-opacity text-[13px] px-4 py-[6px] rounded font-medium"
