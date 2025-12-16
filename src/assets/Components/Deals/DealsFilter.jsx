@@ -26,7 +26,7 @@ const DealsFilter = ({ onFilterApplied, refreshTrigger }) => {
 
   const statusOptions = ["All", "Active", "Inactive"];
 
-  // Generate last 12 months + "All Time"
+  // Generate last 12 months + All Time
   const generateMonthOptions = () => {
     const months = ["All Time"];
     const currentDate = new Date();
@@ -46,7 +46,7 @@ const DealsFilter = ({ onFilterApplied, refreshTrigger }) => {
   };
   const dateRangeOptions = generateMonthOptions();
 
-  // Fetch deals for dropdown
+  // Fetch current month deals for dropdown options
   useEffect(() => {
     if (!restaurantId) return;
 
@@ -74,7 +74,6 @@ const DealsFilter = ({ onFilterApplied, refreshTrigger }) => {
     setDropdownStates((prev) => ({ ...prev, [filterType]: false }));
   };
 
-  // Reset filters
   const resetFilters = async () => {
     const reset = {
       dateRange: "All Time",
@@ -84,7 +83,7 @@ const DealsFilter = ({ onFilterApplied, refreshTrigger }) => {
     setFilters(reset);
     setFiltersApplied(false);
 
-    // Apply reset filters
+    // Apply reset filters to fetch all data
     await applyFilters(reset, true);
   };
 
@@ -101,7 +100,6 @@ const DealsFilter = ({ onFilterApplied, refreshTrigger }) => {
     };
   };
 
-  // Apply filters
   const applyFilters = async (customFilters, isReset = false) => {
     if (!restaurantId) return;
     const activeFilters = customFilters || filters;
@@ -111,10 +109,8 @@ const DealsFilter = ({ onFilterApplied, refreshTrigger }) => {
 
     if (activeFilters.deal !== "All Deals")
       payload.dealTitle = activeFilters.deal;
-
     if (activeFilters.status !== "All")
       payload.status = activeFilters.status.toLowerCase();
-
     if (startDate) payload.startDate = startDate;
     if (endDate) payload.endDate = endDate;
 
@@ -124,11 +120,14 @@ const DealsFilter = ({ onFilterApplied, refreshTrigger }) => {
 
       if (onFilterApplied) onFilterApplied(dealsArray);
 
-      // Show Reset button whenever a filter is applied manually
+      // ✅ Always set filtersApplied = true when applying filters, regardless of results
       if (!isReset) setFiltersApplied(true);
     } catch (err) {
       console.error("Error applying filters:", err);
       if (onFilterApplied) onFilterApplied([]);
+
+      // ✅ Still mark filters as applied so Reset button shows even if API fails
+      if (!isReset) setFiltersApplied(true);
     }
   };
 
