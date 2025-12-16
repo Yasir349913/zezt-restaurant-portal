@@ -1,5 +1,5 @@
 import React from "react";
-import Loader from "../Dashboard/Loader";
+import Loader from "../Common/Loader";
 
 const BookingCard = ({ name, number, percentage }) => (
   <div className="bg-white rounded-lg border border-gray-200 p-4 flex flex-col shadow-sm hover:shadow-md transition-shadow">

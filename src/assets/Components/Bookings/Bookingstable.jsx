@@ -6,8 +6,7 @@ import {
   markBookingNoShow,
   markBookingCompleted,
 } from "../../../api/services/Bookingsservice";
-import Loader from "../Dashboard/Loader";
-
+import Loader from "../Common/Loader";
 const BookingTable = ({ bookings, onRefresh, loading = false }) => {
   const [currentPage, setCurrentPage] = useState(1);
   const [activeDropdown, setActiveDropdown] = useState(null);
