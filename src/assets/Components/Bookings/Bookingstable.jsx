@@ -6,8 +6,9 @@ import {
   markBookingNoShow,
   markBookingCompleted,
 } from "../../../api/services/Bookingsservice";
+import Loader from "../Dashboard/Loader";
 
-const BookingTable = ({ bookings, onRefresh }) => {
+const BookingTable = ({ bookings, onRefresh, loading = false }) => {
   const [currentPage, setCurrentPage] = useState(1);
   const [activeDropdown, setActiveDropdown] = useState(null);
   const [loadingIds, setLoadingIds] = useState(new Set());
@@ -198,10 +199,40 @@ const BookingTable = ({ bookings, onRefresh }) => {
     }
   };
 
+  // Loading state
+  if (loading) {
+    return (
+      <div className="bg-white rounded-lg border border-gray-200 p-8 flex items-center justify-center">
+        <Loader size="md" text="Loading bookings..." />
+      </div>
+    );
+  }
+
+  // Empty state
   if (!bookings || bookings.length === 0) {
     return (
-      <div className="bg-white rounded-lg border border-gray-200 p-12 text-center">
-        <p className="text-gray-500">No bookings found</p>
+      <div className="bg-white rounded-lg border border-gray-200 p-12">
+        <div className="text-center">
+          <svg
+            className="w-16 h-16 text-gray-300 mx-auto mb-3"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={1.5}
+              d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+            />
+          </svg>
+          <p className="text-gray-500 text-sm font-medium mb-1">
+            No bookings found
+          </p>
+          <p className="text-gray-400 text-xs">
+            Bookings will appear here once customers make reservations
+          </p>
+        </div>
       </div>
     );
   }
