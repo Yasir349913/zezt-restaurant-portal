@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { getBillingInfo } from "../../../api/services/Revenueservices";
 import { useRestaurant } from "../../../context/RestaurantContext";
+import Loader from "../Dashboard/Loader";
 
 const UsageProgressBar = ({ label, percentage, color = "#EF4444" }) => (
   <div className="mb-4">
@@ -22,10 +23,10 @@ const Progressbar = () => {
   const { restaurantId } = useRestaurant();
   const [usageData, setUsageData] = useState([]);
   const [billingDetails, setBillingDetails] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   const formatCurrency = (value) => {
-    if (typeof value !== "number") return "-";
+    if (typeof value !== "number") return "Rs 0.00";
     return `Rs ${value.toLocaleString(undefined, {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
@@ -42,12 +43,25 @@ const Progressbar = () => {
   };
 
   useEffect(() => {
-    if (!restaurantId) return;
-
     const fetchData = async () => {
       setLoading(true);
+
+      // Check localStorage fallback
+      const fallbackId =
+        typeof window !== "undefined"
+          ? localStorage.getItem("restaurantId")
+          : null;
+      const idToUse = restaurantId || fallbackId;
+
       try {
-        const data = await getBillingInfo(restaurantId);
+        if (!idToUse) {
+          // No restaurant - set empty data
+          setUsageData([]);
+          setBillingDetails([]);
+          return;
+        }
+
+        const data = await getBillingInfo(idToUse);
         const d = data?.data;
 
         if (d && d.currentMonth) {
@@ -95,12 +109,12 @@ const Progressbar = () => {
             },
           ]);
         } else {
-          // ✅ No fallback data
           setUsageData([]);
           setBillingDetails([]);
         }
       } catch (error) {
         console.error("Error fetching progress data:", error);
+        // On error, show empty data (graceful fallback)
         setUsageData([]);
         setBillingDetails([]);
       } finally {
@@ -111,34 +125,14 @@ const Progressbar = () => {
     fetchData();
   }, [restaurantId]);
 
-  if (!restaurantId) {
-    return (
-      <div className="text-center text-gray-500 py-8">
-        Please select a restaurant to view billing information
-      </div>
-    );
-  }
-
   if (loading) {
     return (
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white rounded-lg border border-gray-200 p-6">
-          <div className="animate-pulse">
-            <div className="h-4 bg-gray-200 rounded w-1/3 mb-4"></div>
-            <div className="space-y-3">
-              <div className="h-3 bg-gray-200 rounded"></div>
-              <div className="h-3 bg-gray-200 rounded"></div>
-            </div>
-          </div>
+        <div className="bg-white rounded-lg border border-gray-200 p-6 flex items-center justify-center h-64">
+          <Loader size="md" text="Loading usage data..." />
         </div>
-        <div className="bg-white rounded-lg border border-gray-200 p-6">
-          <div className="animate-pulse">
-            <div className="h-4 bg-gray-200 rounded w-1/3 mb-4"></div>
-            <div className="space-y-3">
-              <div className="h-3 bg-gray-200 rounded"></div>
-              <div className="h-3 bg-gray-200 rounded"></div>
-            </div>
-          </div>
+        <div className="bg-white rounded-lg border border-gray-200 p-6 flex items-center justify-center h-64">
+          <Loader size="md" text="Loading billing info..." />
         </div>
       </div>
     );
@@ -161,8 +155,26 @@ const Progressbar = () => {
             />
           ))
         ) : (
-          <div className="text-gray-500 text-center py-6">
-            No usage data available
+          <div className="text-center py-12">
+            <svg
+              className="w-16 h-16 text-gray-300 mx-auto mb-3"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={1.5}
+                d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+              />
+            </svg>
+            <p className="text-sm text-gray-500 font-medium mb-1">
+              No usage data available
+            </p>
+            <p className="text-xs text-gray-400">
+              Data will appear once you have billing activity
+            </p>
           </div>
         )}
       </div>
@@ -184,8 +196,26 @@ const Progressbar = () => {
             ))}
           </div>
         ) : (
-          <div className="text-gray-500 text-center py-6">
-            No billing details available
+          <div className="text-center py-12">
+            <svg
+              className="w-16 h-16 text-gray-300 mx-auto mb-3"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={1.5}
+                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+              />
+            </svg>
+            <p className="text-sm text-gray-500 font-medium mb-1">
+              No billing details available
+            </p>
+            <p className="text-xs text-gray-400">
+              Billing information will appear here
+            </p>
           </div>
         )}
       </div>

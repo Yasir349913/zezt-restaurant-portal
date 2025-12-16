@@ -3,19 +3,32 @@ import React, { useEffect, useState } from "react";
 import InvoiceItem from "./InvoiceItem";
 import { getInvoices } from "../../../api/services/Revenueservices";
 import { useRestaurant } from "../../../context/RestaurantContext";
+import Loader from "../Common/Loader";
 
 const RecentInvoices = () => {
   const { restaurantId } = useRestaurant();
   const [invoices, setInvoices] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!restaurantId) return;
-
     const loadInvoices = async () => {
       setLoading(true);
+
+      // Check localStorage fallback
+      const fallbackId =
+        typeof window !== "undefined"
+          ? localStorage.getItem("restaurantId")
+          : null;
+      const idToUse = restaurantId || fallbackId;
+
       try {
-        const data = await getInvoices(restaurantId);
+        if (!idToUse) {
+          // No restaurant - set empty array
+          setInvoices([]);
+          return;
+        }
+
+        const data = await getInvoices(idToUse);
         const d = data?.data;
 
         if (d) {
@@ -58,6 +71,7 @@ const RecentInvoices = () => {
         }
       } catch (error) {
         console.error("Error loading invoices:", error);
+        // On error, show empty array (graceful fallback)
         setInvoices([]);
       } finally {
         setLoading(false);
@@ -66,16 +80,6 @@ const RecentInvoices = () => {
 
     loadInvoices();
   }, [restaurantId]);
-
-  if (!restaurantId) {
-    return (
-      <div className="bg-white rounded-lg border border-gray-200 p-6">
-        <div className="text-gray-500 text-center py-6">
-          Please select a restaurant to view invoices
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-6">
@@ -87,13 +91,8 @@ const RecentInvoices = () => {
         </div>
 
         {loading ? (
-          <div className="space-y-3">
-            {[1, 2, 3].map((i) => (
-              <div
-                key={i}
-                className="animate-pulse bg-gray-100 rounded-lg p-4 h-20"
-              ></div>
-            ))}
+          <div className="flex items-center justify-center py-12">
+            <Loader size="md" text="Loading invoices..." />
           </div>
         ) : invoices.length > 0 ? (
           <div className="space-y-4">
@@ -109,8 +108,26 @@ const RecentInvoices = () => {
             ))}
           </div>
         ) : (
-          <div className="text-gray-500 text-center py-6">
-            No invoices found
+          <div className="text-center py-12">
+            <svg
+              className="w-16 h-16 text-gray-300 mx-auto mb-3"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={1.5}
+                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+              />
+            </svg>
+            <p className="text-sm text-gray-500 font-medium mb-1">
+              No invoices found
+            </p>
+            <p className="text-xs text-gray-400">
+              Invoices will appear here once you have transactions
+            </p>
           </div>
         )}
       </div>

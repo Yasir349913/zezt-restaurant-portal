@@ -6,21 +6,21 @@ import {
   getBillingInfo,
 } from "../../../api/services/Revenueservices";
 import { useRestaurant } from "../../../context/RestaurantContext";
+import Loader from "../Common/Loader";
 
 const RevenuecardItems = ({ onTabChange }) => {
   const { restaurantId } = useRestaurant();
   const [activeTab, setActiveTab] = useState("Revenue Overview");
   const [items, setItems] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   const navigationTabs = ["Revenue Overview", "Billing & invoices"];
 
   // Format currency helper
   const formatCurrency = (value) => {
-    if (typeof value !== "number") return "-";
+    if (typeof value !== "number") return "£ 0.00";
     return `£ ${value.toLocaleString(undefined, {
-
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     })}`;
@@ -36,39 +36,118 @@ const RevenuecardItems = ({ onTabChange }) => {
     }
   };
 
-  useEffect(() => {
-    if (!restaurantId) return;
+  // Default empty data
+  const getDefaultItems = () => {
+    if (activeTab === "Revenue Overview") {
+      return [
+        {
+          name: "Total Revenue",
+          number: formatCurrency(0),
+          percentage: 0,
+          subtitle: "0 bookings",
+        },
+        {
+          name: "Previous Month Revenue",
+          number: formatCurrency(0),
+          percentage: 0,
+          subtitle: "Last month total",
+        },
+        {
+          name: "Growth Rate",
+          number: "0.0%",
+          percentage: 0,
+          subtitle: "No change",
+        },
+        {
+          name: "Net Revenue",
+          number: formatCurrency(0),
+          percentage: 0,
+          subtitle: "After subscription fee",
+        },
+        {
+          name: "Subscription Fee",
+          number: formatCurrency(0),
+          percentage: 0,
+          subtitle: "Status",
+        },
+        {
+          name: "Total Bookings",
+          number: 0,
+          percentage: 0,
+          subtitle: "This month",
+        },
+      ];
+    } else {
+      return [
+        {
+          name: "Payment Status",
+          number: "-",
+          percentage: 0,
+          subtitle: "Current status",
+        },
+        {
+          name: "This Month Subscription",
+          number: formatCurrency(0),
+          percentage: 0,
+          subtitle: "Monthly fee",
+        },
+        {
+          name: "Outstanding Amount",
+          number: formatCurrency(0),
+          percentage: 0,
+          subtitle: "Due amount",
+        },
+        {
+          name: "Next Payment Due",
+          number: "-",
+          percentage: 0,
+          subtitle: "Payment date",
+        },
+      ];
+    }
+  };
 
+  useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
       setError(null);
 
+      // Check localStorage fallback
+      const fallbackId =
+        typeof window !== "undefined"
+          ? localStorage.getItem("restaurantId")
+          : null;
+      const idToUse = restaurantId || fallbackId;
+
       try {
+        if (!idToUse) {
+          // No restaurant - set default empty values
+          setItems(getDefaultItems());
+          return;
+        }
+
         let cardItems = [];
 
         if (activeTab === "Revenue Overview") {
-          const data = await getRevenueOverview(restaurantId);
+          const data = await getRevenueOverview(idToUse);
           const d = data?.data;
 
           console.log("📊 Revenue Overview Data:", d);
 
           if (d) {
             cardItems = [
-              // Card 1: Total Revenue
               {
                 name: "Total Revenue",
                 number: formatCurrency(d.totalRevenue),
                 percentage: d.percentageChange ?? 0,
                 subtitle: `${d.totalBookings || 0} bookings`,
               },
-              // Card 2: Previous Month Revenue (NEW)
               {
                 name: "Previous Month Revenue",
                 number: formatCurrency(d.previousMonthRevenue),
                 percentage: 0,
                 subtitle: "Last month total",
               },
-              // Card 3: Percentage Change (NEW - Standalone Card)
               {
                 name: "Growth Rate",
                 number: `${d.percentageChange > 0 ? "+" : ""}${
@@ -80,21 +159,18 @@ const RevenuecardItems = ({ onTabChange }) => {
                     ? "📈 Revenue is growing"
                     : "📉 Revenue decreased",
               },
-              // Card 4: Net Revenue
               {
                 name: "Net Revenue",
                 number: formatCurrency(d.netRevenue),
                 percentage: d.percentageChange ?? 0,
                 subtitle: "After subscription fee",
               },
-              // Card 5: Subscription Fee
               {
                 name: "Subscription Fee",
                 number: formatCurrency(d.subscriptionFee),
                 percentage: 0,
                 subtitle: d.subscriptionStatus || "Status",
               },
-              // Card 6: Total Bookings (NEW)
               {
                 name: "Total Bookings",
                 number: d.totalBookings || 0,
@@ -102,9 +178,11 @@ const RevenuecardItems = ({ onTabChange }) => {
                 subtitle: "This month",
               },
             ];
+          } else {
+            cardItems = getDefaultItems();
           }
         } else if (activeTab === "Billing & invoices") {
-          const data = await getBillingInfo(restaurantId);
+          const data = await getBillingInfo(idToUse);
           const d = data?.data;
 
           console.log("💳 Billing Info Data:", d);
@@ -137,6 +215,8 @@ const RevenuecardItems = ({ onTabChange }) => {
                 subtitle: "Payment date",
               },
             ];
+          } else {
+            cardItems = getDefaultItems();
           }
         }
 
@@ -144,7 +224,8 @@ const RevenuecardItems = ({ onTabChange }) => {
       } catch (error) {
         console.error("❌ Error fetching data:", error);
         setError(error.message);
-        setItems([]);
+        // On error, show default empty values (graceful fallback)
+        setItems(getDefaultItems());
       } finally {
         setLoading(false);
       }
@@ -158,36 +239,21 @@ const RevenuecardItems = ({ onTabChange }) => {
     if (onTabChange) onTabChange(tab);
   };
 
-  if (!restaurantId) {
-    return (
-      <div className="text-center text-gray-500 py-8">
-        Please select a restaurant to view revenue data
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-6">
-      {/* Error Message */}
-      {error && (
+      {/* Error Message (only for API errors, not missing restaurant) */}
+      {error && restaurantId && (
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
           Error: {error}
         </div>
       )}
 
-      {/* Cards Grid - Now 6 cards for Revenue Overview */}
+      {/* Cards Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {loading ? (
-          [1, 2, 3, 4, 5, 6].map((i) => (
-            <div
-              key={i}
-              className="bg-white rounded-lg shadow-sm animate-pulse p-4 border border-gray-200 min-h-[117px]"
-            >
-              <div className="h-3 bg-gray-200 rounded w-1/2 mb-3"></div>
-              <div className="h-6 bg-gray-200 rounded w-3/4 mb-2"></div>
-              <div className="h-2 bg-gray-200 rounded w-full"></div>
-            </div>
-          ))
+          <div className="col-span-full flex items-center justify-center py-12">
+            <Loader size="md" text="Loading revenue data..." />
+          </div>
         ) : items.length > 0 ? (
           items.map((item, index) => (
             <Carditem
