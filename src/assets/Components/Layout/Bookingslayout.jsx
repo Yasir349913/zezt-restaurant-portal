@@ -131,8 +131,9 @@ export default function Bookingslayout() {
                   No restaurant created yet
                 </p>
                 <p className="text-sm text-yellow-700 mt-1">
-                  Please create a restaurant to see live booking data. The
-                  dashboard will show placeholder values until then.
+                  Please create a restaurant to see live booking data. Go to
+                  settings in the SideBar on the Left to create a Restaurant
+                  Account.
                 </p>
               </div>
             </div>
