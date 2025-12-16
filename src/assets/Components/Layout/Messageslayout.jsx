@@ -13,12 +13,17 @@ import {
   getConversationById,
   searchConversations,
 } from "../../../api/services/Messagesservices";
-
+import Loader from "../Common/Loader";
 import useRestaurantChat from "../Messages/useRestaurantChat";
 
 export default function Messageslayout() {
   const { user } = useAuth();
   const { restaurantId } = useRestaurant();
+
+  // ✅ Check if restaurant exists
+  const fallbackId =
+    typeof window !== "undefined" ? localStorage.getItem("restaurantId") : null;
+  const hasRestaurant = restaurantId || fallbackId;
 
   // ✅ FIXED: Better user ID extraction with debugging
   console.log("🔍 AUTH DEBUG:");
@@ -109,19 +114,28 @@ export default function Messageslayout() {
   // 1️⃣ Load conversations on mount
   useEffect(() => {
     const loadConversations = async () => {
-      if (!restaurantId) {
-        console.log("⚠️ No restaurantId, skipping conversation load");
+      console.log("🏪 Checking restaurant:", restaurantId);
+      console.log("👤 User ID:", userId);
+      console.log("🔍 Has restaurant:", hasRestaurant);
+
+      setIsInitialLoading(true);
+
+      // ✅ If no restaurant, just set loading to false and show empty UI
+      if (!hasRestaurant) {
+        console.log("⚠️ No restaurant, showing empty state");
+        setConversations([]);
+        setFilteredConversations([]);
+        setIsInitialLoading(false);
         return;
       }
 
       if (!userId) {
         console.error("❌ No userId, cannot load conversations");
+        setIsInitialLoading(false);
         return;
       }
 
       console.log("🏪 Loading conversations for restaurant:", restaurantId);
-      console.log("👤 With userId:", userId);
-      setIsInitialLoading(true);
 
       try {
         const convs = await fetchRestaurantConversations(restaurantId);
@@ -191,16 +205,24 @@ export default function Messageslayout() {
         }
       } catch (error) {
         console.error("❌ Error loading conversations:", error);
+        // On error, still show UI with empty conversations
+        setConversations([]);
+        setFilteredConversations([]);
       } finally {
         setIsInitialLoading(false);
       }
     };
 
     loadConversations();
-  }, [restaurantId, userId]);
+  }, [restaurantId, userId, hasRestaurant]);
 
   // 2️⃣ Handle conversation selection
   const handleConversationSelect = async (roomId) => {
+    if (!hasRestaurant) {
+      console.log("⚠️ No restaurant, cannot select conversation");
+      return;
+    }
+
     if (roomId === selectedConversationId) {
       console.log("ℹ️ Already on conversation:", roomId);
       return;
@@ -280,6 +302,11 @@ export default function Messageslayout() {
 
   // 3️⃣ Handle sending a message
   const handleSendMessage = (messageContent) => {
+    if (!hasRestaurant) {
+      console.log("⚠️ No restaurant, cannot send message");
+      return;
+    }
+
     if (!selectedConversationId) {
       console.warn("⚠️ No conversation selected");
       return;
@@ -313,7 +340,7 @@ export default function Messageslayout() {
 
   // 4️⃣ Handle typing indicator
   const handleTyping = () => {
-    if (selectedConversationId && userId) {
+    if (hasRestaurant && selectedConversationId && userId) {
       emitTyping(selectedConversationId, true);
     }
   };
@@ -332,19 +359,47 @@ export default function Messageslayout() {
     return () => clearTimeout(timer);
   }, [searchTerm, conversations]);
 
+  // ✅ Show loader while initially loading
   if (isInitialLoading) {
     return (
       <div className="xl:ml-64 pt-14 bg-gray-50 h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading messages...</p>
-        </div>
+        <Loader size="lg" text="Loading messages..." />
       </div>
     );
   }
 
   return (
     <div className="xl:ml-64 pt-14 bg-gray-50 min-h-screen">
+      {/* ✅ Warning banner if no restaurant */}
+      {!hasRestaurant && (
+        <div className="p-4">
+          <div className="bg-yellow-50 border-l-4 border-yellow-400 rounded-lg p-4">
+            <div className="flex items-start">
+              <svg
+                className="w-5 h-5 text-yellow-600 mt-0.5 flex-shrink-0"
+                fill="currentColor"
+                viewBox="0 0 20 20"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
+                  clipRule="evenodd"
+                />
+              </svg>
+              <div className="ml-3">
+                <p className="text-sm font-medium text-yellow-800">
+                  No restaurant created yet
+                </p>
+                <p className="text-sm text-yellow-700 mt-1">
+                  Please create a restaurant to access customer messages.
+                  Conversations will appear once your restaurant is set up.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="h-[calc(100vh-3.5rem)] flex gap-3 p-4">
         {/* Conversations Sidebar */}
         <div className="w-96 bg-white rounded-2xl shadow-sm flex flex-col">
@@ -358,11 +413,37 @@ export default function Messageslayout() {
             />
           </div>
           <div className="flex-1 overflow-y-auto px-6">
-            <ConversationsList
-              conversations={filteredConversations}
-              selectedId={selectedConversationId}
-              onSelect={handleConversationSelect}
-            />
+            {filteredConversations.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-full text-center py-12">
+                <svg
+                  className="w-16 h-16 text-gray-300 mb-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                  />
+                </svg>
+                <p className="text-lg font-medium text-gray-600 mb-1">
+                  No conversations yet
+                </p>
+                <p className="text-sm text-gray-500">
+                  {hasRestaurant
+                    ? "Customer messages will appear here once they start chatting with you"
+                    : "Create a restaurant to start receiving messages"}
+                </p>
+              </div>
+            ) : (
+              <ConversationsList
+                conversations={filteredConversations}
+                selectedId={selectedConversationId}
+                onSelect={handleConversationSelect}
+              />
+            )}
           </div>
         </div>
 
@@ -386,14 +467,75 @@ export default function Messageslayout() {
                 onSend={handleSendMessage}
                 onChange={handleTyping}
                 placeholder="Reply to customer..."
-                disabled={isLoading}
+                disabled={isLoading || !hasRestaurant}
                 roomId={selectedConversationId}
                 userId={userId}
               />
             </>
           ) : (
-            <div className="flex-1 flex items-center justify-center text-gray-500">
-              <p className="text-lg">Select a conversation to start</p>
+            <div className="flex-1 flex flex-col items-center justify-center text-gray-500">
+              {!hasRestaurant ? (
+                <>
+                  <svg
+                    className="w-20 h-20 text-gray-300 mb-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                    />
+                  </svg>
+                  <p className="text-lg font-medium mb-1">
+                    Create a restaurant first
+                  </p>
+                  <p className="text-sm text-gray-400">
+                    Set up your restaurant to start messaging customers
+                  </p>
+                </>
+              ) : conversations.length === 0 ? (
+                <>
+                  <svg
+                    className="w-20 h-20 text-gray-300 mb-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                    />
+                  </svg>
+                  <p className="text-lg font-medium mb-1">No messages yet</p>
+                  <p className="text-sm text-gray-400">
+                    Waiting for customer messages...
+                  </p>
+                </>
+              ) : (
+                <>
+                  <svg
+                    className="w-20 h-20 text-gray-300 mb-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"
+                    />
+                  </svg>
+                  <p className="text-lg font-medium">
+                    Select a conversation to start
+                  </p>
+                </>
+              )}
             </div>
           )}
         </div>
