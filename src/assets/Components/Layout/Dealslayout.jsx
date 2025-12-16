@@ -13,13 +13,17 @@ export default function Dealslayout() {
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [filteredDeals, setFilteredDeals] = useState(null);
 
-  // ✅ Admin approval state with additional fields for trial and subscription
+  // ✅ Admin approval state with additional fields
   const [adminStatus, setAdminStatus] = useState(null);
   const [isApproved, setIsApproved] = useState(false);
   const [hasTrialEnded, setHasTrialEnded] = useState(false);
   const [isSubscriptionActive, setIsSubscriptionActive] = useState(true);
   const [statusMessage, setStatusMessage] = useState("");
   const [loadingStatus, setLoadingStatus] = useState(true);
+
+  // ✅ New state for restaurant not found error
+  const [restaurantNotFound, setRestaurantNotFound] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
 
   // ✅ Fetch admin status on component mount
   useEffect(() => {
@@ -29,6 +33,21 @@ export default function Dealslayout() {
         const response = await checkAdminStatus();
         console.log("Admin status response:", response);
 
+        // ✅ Check if there's an error field indicating restaurant not found
+        if (response.error === "Restaurant not found") {
+          setRestaurantNotFound(true);
+          setErrorMessage(
+            response.message || "Please create a restaurant account first."
+          );
+          setIsApproved(false);
+          setStatusMessage(response.message || "");
+          return;
+        }
+
+        // ✅ Reset restaurant not found state if no error
+        setRestaurantNotFound(false);
+        setErrorMessage("");
+
         setAdminStatus(response.admin_status);
         setIsApproved(response.is_approved || false);
         setHasTrialEnded(response.has_trial_ended || false);
@@ -36,11 +55,22 @@ export default function Dealslayout() {
         setStatusMessage(response.message || "");
       } catch (error) {
         console.error("Failed to fetch admin status:", error);
-        // On error, assume not approved for safety
-        setIsApproved(false);
-        setHasTrialEnded(false);
-        setIsSubscriptionActive(true);
-        setStatusMessage("");
+
+        // ✅ Check if error response contains restaurant not found
+        if (error?.response?.data?.error === "Restaurant not found") {
+          setRestaurantNotFound(true);
+          setErrorMessage(
+            error.response.data.message ||
+              "Please create a restaurant account first."
+          );
+          setIsApproved(false);
+        } else {
+          // On other errors, assume not approved for safety
+          setIsApproved(false);
+          setHasTrialEnded(false);
+          setIsSubscriptionActive(true);
+          setStatusMessage("");
+        }
       } finally {
         setLoadingStatus(false);
       }
@@ -82,28 +112,44 @@ export default function Dealslayout() {
 
   // ✅ Determine which scenario to display
   const getStatusInfo = () => {
+    // ✅ Priority 1: Restaurant not found
+    if (restaurantNotFound) {
+      return {
+        title: "Restaurant Not Found",
+        message: errorMessage,
+        canCreateDeal: false,
+        showBanner: true,
+      };
+    }
+
     if (!loadingStatus && statusMessage) {
-      // Scenario 1: Restaurant not approved (pending)
+      // Scenario 2: Restaurant not approved (pending)
       if (!isApproved && adminStatus === "pending") {
         return {
           title: "Restaurant Approval Pending",
+          message: statusMessage,
           canCreateDeal: false,
+          showBanner: true,
         };
       }
 
-      // Scenario 2: Trial period ended
+      // Scenario 3: Trial period ended
       if (hasTrialEnded) {
         return {
           title: "Trial Period Expired",
+          message: statusMessage,
           canCreateDeal: false,
+          showBanner: true,
         };
       }
 
-      // Scenario 3: Subscription inactive
+      // Scenario 4: Subscription inactive
       if (!isSubscriptionActive) {
         return {
           title: "Subscription Inactive",
+          message: statusMessage,
           canCreateDeal: false,
+          showBanner: true,
         };
       }
     }
@@ -111,7 +157,9 @@ export default function Dealslayout() {
     // Default: Everything is fine
     return {
       title: null,
+      message: "",
       canCreateDeal: true,
+      showBanner: false,
     };
   };
 
@@ -139,41 +187,61 @@ export default function Dealslayout() {
               {loadingStatus ? "Loading..." : "Create New Deal"}
             </button>
 
-            {/* ✅ Show backend message on hover if not able to create deal */}
-            {!loadingStatus && !statusInfo.canCreateDeal && statusMessage && (
-              <div className="invisible group-hover:visible absolute top-full right-0 mt-2 w-80 bg-yellow-50 border border-yellow-200 rounded-lg p-4 shadow-lg z-10 transition-all duration-200">
-                <div className="flex gap-2">
-                  <AlertCircle
-                    size={20}
-                    className="text-yellow-600 flex-shrink-0 mt-0.5"
-                  />
-                  <div>
-                    <p className="text-sm font-medium text-yellow-800 mb-1">
-                      {statusInfo.title}
-                    </p>
-                    <p className="text-xs text-yellow-700 leading-relaxed">
-                      {statusMessage}
-                    </p>
+            {/* ✅ Show message on hover if not able to create deal */}
+            {!loadingStatus &&
+              !statusInfo.canCreateDeal &&
+              statusInfo.message && (
+                <div className="invisible group-hover:visible absolute top-full right-0 mt-2 w-80 bg-yellow-50 border border-yellow-200 rounded-lg p-4 shadow-lg z-10 transition-all duration-200">
+                  <div className="flex gap-2">
+                    <AlertCircle
+                      size={20}
+                      className="text-yellow-600 flex-shrink-0 mt-0.5"
+                    />
+                    <div>
+                      <p className="text-sm font-medium text-yellow-800 mb-1">
+                        {statusInfo.title}
+                      </p>
+                      <p className="text-xs text-yellow-700 leading-relaxed">
+                        {statusInfo.message}
+                      </p>
+                    </div>
                   </div>
                 </div>
-              </div>
-            )}
+              )}
           </div>
         </div>
 
         {/* ✅ Banner with appropriate message for each scenario */}
-        {!loadingStatus && !statusInfo.canCreateDeal && statusMessage && (
-          <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-r-lg">
+        {!loadingStatus && statusInfo.showBanner && statusInfo.message && (
+          <div
+            className={`border-l-4 p-4 rounded-r-lg ${
+              restaurantNotFound
+                ? "bg-red-50 border-red-400"
+                : "bg-yellow-50 border-yellow-400"
+            }`}
+          >
             <div className="flex items-start">
               <AlertCircle
                 size={20}
-                className="text-yellow-600 flex-shrink-0 mt-0.5"
+                className={`flex-shrink-0 mt-0.5 ${
+                  restaurantNotFound ? "text-red-600" : "text-yellow-600"
+                }`}
               />
               <div className="ml-3">
-                <h3 className="text-sm font-medium text-yellow-800">
+                <h3
+                  className={`text-sm font-medium ${
+                    restaurantNotFound ? "text-red-800" : "text-yellow-800"
+                  }`}
+                >
                   {statusInfo.title}
                 </h3>
-                <p className="text-sm text-yellow-700 mt-1">{statusMessage}</p>
+                <p
+                  className={`text-sm mt-1 ${
+                    restaurantNotFound ? "text-red-700" : "text-yellow-700"
+                  }`}
+                >
+                  {statusInfo.message}
+                </p>
               </div>
             </div>
           </div>
