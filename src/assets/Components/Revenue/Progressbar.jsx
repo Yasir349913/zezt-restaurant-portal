@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { getBillingInfo } from "../../../api/services/Revenueservices";
 import { useRestaurant } from "../../../context/RestaurantContext";
-import Loader from "../Dashboard/Loader";
+import Loader from "../Common/Loader";
 
 const UsageProgressBar = ({ label, percentage, color = "#EF4444" }) => (
   <div className="mb-4">
