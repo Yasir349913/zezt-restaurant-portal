@@ -12,8 +12,7 @@ import {
   FileText,
   RefreshCw,
 } from "lucide-react";
-
-// =============== MAIN DASHBOARD ===============
+import Loader from "../Common/Loader";
 const RestaurantPaymentDashboard = () => {
   const { restaurantId } = useRestaurant();
   const [restaurantData, setRestaurantData] = useState(null);
@@ -23,17 +22,45 @@ const RestaurantPaymentDashboard = () => {
   const [activeTab, setActiveTab] = useState("overview");
   const [hasActiveSubscription, setHasActiveSubscription] = useState(false);
 
+  // Check if restaurant exists (from context or localStorage)
+  const fallbackId =
+    typeof window !== "undefined" ? localStorage.getItem("restaurantId") : null;
+  const hasRestaurant = restaurantId || fallbackId;
+
   useEffect(() => {
-    if (restaurantId) {
-      fetchRestaurantData();
-      checkStripeStatus();
-    }
+    fetchRestaurantData();
+    checkStripeStatus();
   }, [restaurantId]);
 
   // ✅ Fetch restaurant data and check subscription
   const fetchRestaurantData = async () => {
+    setLoading(true);
+    setError(null);
+
+    // Check localStorage fallback
+    const idToUse = restaurantId || fallbackId;
+
     try {
-      setLoading(true);
+      if (!idToUse) {
+        // No restaurant - set default empty data
+        setRestaurantData({
+          name: "Restaurant",
+          plan: "trial",
+          paymentStatus: "inactive",
+          stripeConnectedAccountId: null,
+          stripeAccountActive: false,
+          adminStatus: "pending",
+          commissionRate: 10,
+          monthlyRevenue: 0,
+          totalBookings: 0,
+          stripeSubscriptionId: null,
+          nextPaymentDue: null,
+          paymentHistory: [],
+        });
+        setHasActiveSubscription(false);
+        return;
+      }
+
       const data = await StripeService.getRestaurantData();
       const restaurant = data.data || data;
 
@@ -55,19 +82,20 @@ const RestaurantPaymentDashboard = () => {
     } catch (error) {
       console.error("Error fetching restaurant data:", error);
       setError(error.message);
-      // Fallback mock data
+      // Fallback default data
       setRestaurantData({
-        name: "Sample Restaurant",
+        name: "Restaurant",
         plan: "trial",
         paymentStatus: "trial",
         stripeConnectedAccountId: null,
         stripeAccountActive: false,
         adminStatus: "active",
         commissionRate: 10,
-        monthlyRevenue: 150000,
-        totalBookings: 47,
+        monthlyRevenue: 0,
+        totalBookings: 0,
         stripeSubscriptionId: null,
         nextPaymentDue: null,
+        paymentHistory: [],
       });
       setHasActiveSubscription(false);
     } finally {
@@ -77,6 +105,17 @@ const RestaurantPaymentDashboard = () => {
 
   // ✅ Check Stripe status
   const checkStripeStatus = async () => {
+    const idToUse = restaurantId || fallbackId;
+
+    if (!idToUse) {
+      setStripeStatus({
+        connected: false,
+        accountActive: false,
+        requiresAction: true,
+      });
+      return;
+    }
+
     try {
       const data = await StripeService.checkStatus();
       setStripeStatus(data);
@@ -92,6 +131,11 @@ const RestaurantPaymentDashboard = () => {
 
   // ✅ Stripe onboarding
   const handleStripeOnboarding = async () => {
+    if (!hasRestaurant) {
+      alert("Please create a restaurant first");
+      return;
+    }
+
     try {
       setLoading(true);
       const data = await StripeService.initiateOnboarding();
@@ -111,6 +155,11 @@ const RestaurantPaymentDashboard = () => {
 
   // ✅ Create subscription
   const handleCreateSubscription = async () => {
+    if (!hasRestaurant) {
+      alert("Please create a restaurant first");
+      return;
+    }
+
     try {
       setLoading(true);
       const data = await StripeService.createSubscription();
@@ -131,6 +180,7 @@ const RestaurantPaymentDashboard = () => {
   const getStatusColor = (status) => {
     switch (status) {
       case "current":
+      case "active":
         return "text-green-600";
       case "trial":
         return "text-blue-600";
@@ -144,30 +194,43 @@ const RestaurantPaymentDashboard = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-      </div>
-    );
-  }
-
-  if (!restaurantId) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="bg-red-50 border border-red-200 rounded-lg p-6 max-w-md">
-          <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-red-900 text-center mb-2">
-            Restaurant ID Not Found
-          </h3>
-          <p className="text-sm text-red-700 text-center">
-            Please log in again to access the dashboard.
-          </p>
-        </div>
+        <Loader size="lg" text="Loading payment dashboard..." />
       </div>
     );
   }
 
   return (
     <div className="max-w-7xl mx-auto p-6 space-y-6">
-      {/* ✅ Stripe Account Setup Alert - Only if Stripe NOT connected */}
+      {/* ✅ Warning banner if no restaurant */}
+      {!hasRestaurant && (
+        <div className="bg-yellow-50 border-l-4 border-yellow-400 rounded-lg p-4">
+          <div className="flex items-start">
+            <svg
+              className="w-5 h-5 text-yellow-600 mt-0.5 flex-shrink-0"
+              fill="currentColor"
+              viewBox="0 0 20 20"
+            >
+              <path
+                fillRule="evenodd"
+                d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
+                clipRule="evenodd"
+              />
+            </svg>
+            <div className="ml-3">
+              <p className="text-sm font-medium text-yellow-800">
+                No restaurant created yet
+              </p>
+              <p className="text-sm text-yellow-700 mt-1">
+                Please create a restaurant to access payment features. All
+                buttons and tabs will be available once your restaurant is set
+                up.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ✅ Stripe Account Setup Alert - Disabled if no restaurant */}
       {!stripeStatus?.accountActive && (
         <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4">
           <div className="flex items-start">
@@ -182,7 +245,9 @@ const RestaurantPaymentDashboard = () => {
               </p>
               <button
                 onClick={handleStripeOnboarding}
-                className="mt-3 bg-yellow-600 text-white px-4 py-2 rounded-md hover:bg-yellow-700 transition-colors text-sm font-medium"
+                disabled={!hasRestaurant}
+                className="mt-3 bg-yellow-600 text-white px-4 py-2 rounded-md hover:bg-yellow-700 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                title={!hasRestaurant ? "Please create a restaurant first" : ""}
               >
                 Connect Stripe Account
               </button>
@@ -192,31 +257,37 @@ const RestaurantPaymentDashboard = () => {
       )}
 
       {/* ✅ Subscription Alert - Only if Stripe connected BUT no subscription */}
-      {stripeStatus?.accountActive && !hasActiveSubscription && (
-        <div className="bg-blue-50 border-l-4 border-blue-400 p-4">
-          <div className="flex items-start">
-            <CreditCard className="h-5 w-5 text-blue-400 mt-0.5 flex-shrink-0" />
-            <div className="ml-3 flex-1">
-              <h3 className="text-sm font-medium text-blue-800">
-                Activate Your Subscription
-              </h3>
-              <p className="mt-1 text-sm text-blue-700">
-                Your Stripe account is connected! Now activate your subscription
-                to start using the platform.
-              </p>
-              <button
-                onClick={handleCreateSubscription}
-                className="mt-3 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors text-sm font-medium"
-              >
-                Activate Subscription (£100)
-              </button>
+      {stripeStatus?.accountActive &&
+        !hasActiveSubscription &&
+        hasRestaurant && (
+          <div className="bg-blue-50 border-l-4 border-blue-400 p-4">
+            <div className="flex items-start">
+              <CreditCard className="h-5 w-5 text-blue-400 mt-0.5 flex-shrink-0" />
+              <div className="ml-3 flex-1">
+                <h3 className="text-sm font-medium text-blue-800">
+                  Activate Your Subscription
+                </h3>
+                <p className="mt-1 text-sm text-blue-700">
+                  Your Stripe account is connected! Now activate your
+                  subscription to start using the platform.
+                </p>
+                <button
+                  onClick={handleCreateSubscription}
+                  disabled={!hasRestaurant}
+                  className="mt-3 bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                  title={
+                    !hasRestaurant ? "Please create a restaurant first" : ""
+                  }
+                >
+                  Activate Subscription (£100)
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
       {/* ✅ Active Subscription Confirmation */}
-      {hasActiveSubscription && (
+      {hasActiveSubscription && hasRestaurant && (
         <div className="bg-green-50 border-l-4 border-green-400 p-4">
           <div className="flex items-start">
             <CheckCircle className="h-5 w-5 text-green-400 mt-0.5 flex-shrink-0" />
@@ -232,19 +303,25 @@ const RestaurantPaymentDashboard = () => {
         </div>
       )}
 
-      {/* Tab Navigation */}
+      {/* Tab Navigation - Disabled if no restaurant */}
       <div className="bg-white rounded-lg shadow">
         <div className="border-b border-gray-200">
           <nav className="flex -mb-px">
             {["overview", "subscription", "payments"].map((tab) => (
               <button
                 key={tab}
-                onClick={() => setActiveTab(tab)}
+                onClick={() => hasRestaurant && setActiveTab(tab)}
+                disabled={!hasRestaurant}
                 className={`py-3 px-6 border-b-2 font-medium text-sm capitalize transition-colors ${
-                  activeTab === tab
+                  activeTab === tab && hasRestaurant
                     ? "border-blue-500 text-blue-600"
-                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                    : "border-transparent text-gray-500"
+                } ${
+                  !hasRestaurant
+                    ? "opacity-50 cursor-not-allowed"
+                    : "hover:text-gray-700 hover:border-gray-300"
                 }`}
+                title={!hasRestaurant ? "Please create a restaurant first" : ""}
               >
                 {tab}
               </button>
@@ -264,7 +341,7 @@ const RestaurantPaymentDashboard = () => {
                         Current Plan
                       </p>
                       <p className="text-2xl font-semibold capitalize">
-                        {restaurantData.plan}
+                        {restaurantData?.plan || "N/A"}
                       </p>
                     </div>
                     <CreditCard className="h-8 w-8 text-gray-400" />
@@ -279,10 +356,10 @@ const RestaurantPaymentDashboard = () => {
                       </p>
                       <p
                         className={`text-2xl font-semibold capitalize ${getStatusColor(
-                          restaurantData.paymentStatus
+                          restaurantData?.paymentStatus
                         )}`}
                       >
-                        {restaurantData.paymentStatus}
+                        {restaurantData?.paymentStatus || "N/A"}
                       </p>
                     </div>
                     <DollarSign className="h-8 w-8 text-gray-400" />
@@ -321,23 +398,24 @@ const RestaurantPaymentDashboard = () => {
                   <div>
                     <p className="text-sm text-gray-600">Total Bookings</p>
                     <p className="text-xl font-semibold">
-                      {restaurantData.totalBookings || 0}
+                      {restaurantData?.totalBookings || 0}
                     </p>
                   </div>
                   <div>
                     <p className="text-sm text-gray-600">Revenue</p>
                     <p className="text-xl font-semibold">
-                      £ {(restaurantData.monthlyRevenue || 0).toLocaleString()}
+                      £ {(restaurantData?.monthlyRevenue || 0).toLocaleString()}
                     </p>
                   </div>
                   <div>
                     <p className="text-sm text-gray-600">
-                      Commission ({restaurantData.commissionRate}%)
+                      Commission ({restaurantData?.commissionRate || 0}%)
                     </p>
                     <p className="text-xl font-semibold">
                       £{" "}
                       {(
-                        (restaurantData.monthlyRevenue || 0) * 0.1
+                        (restaurantData?.monthlyRevenue || 0) *
+                        ((restaurantData?.commissionRate || 0) / 100)
                       ).toLocaleString()}
                     </p>
                   </div>
@@ -346,7 +424,8 @@ const RestaurantPaymentDashboard = () => {
                     <p className="text-xl font-semibold">
                       £{" "}
                       {(
-                        (restaurantData.monthlyRevenue || 0) * 0.9
+                        (restaurantData?.monthlyRevenue || 0) *
+                        (1 - (restaurantData?.commissionRate || 0) / 100)
                       ).toLocaleString()}
                     </p>
                   </div>
@@ -377,7 +456,7 @@ const RestaurantPaymentDashboard = () => {
                     </p>
 
                     {/* ✅ Show Active Subscription Status */}
-                    {hasActiveSubscription ? (
+                    {hasActiveSubscription && hasRestaurant ? (
                       <div className="mt-4 space-y-2">
                         <div className="flex items-center text-green-700">
                           <CheckCircle className="h-5 w-5 mr-2" />
@@ -385,7 +464,7 @@ const RestaurantPaymentDashboard = () => {
                             Active Subscription
                           </span>
                         </div>
-                        {restaurantData.nextPaymentDue && (
+                        {restaurantData?.nextPaymentDue && (
                           <p className="text-sm text-gray-600">
                             Next payment:{" "}
                             {new Date(
@@ -395,18 +474,23 @@ const RestaurantPaymentDashboard = () => {
                         )}
                       </div>
                     ) : (
-                      /* ✅ Show Activate Button Only if No Subscription */
+                      /* ✅ Show Activate Button */
                       <div className="mt-4">
                         <p className="text-gray-600 mb-3">
                           Start accepting bookings with our standard plan
                         </p>
-                        {stripeStatus?.accountActive ? (
+                        {stripeStatus?.accountActive && hasRestaurant ? (
                           <button
                             onClick={handleCreateSubscription}
                             className="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 transition-colors"
                           >
                             Activate Subscription
                           </button>
+                        ) : !hasRestaurant ? (
+                          <p className="text-sm text-yellow-700 bg-yellow-50 p-3 rounded border border-yellow-200">
+                            ⚠️ Create a restaurant account first to activate
+                            subscription
+                          </p>
                         ) : (
                           <p className="text-sm text-yellow-700 bg-yellow-50 p-3 rounded border border-yellow-200">
                             ⚠️ Connect your Stripe account first to activate
@@ -449,8 +533,8 @@ const RestaurantPaymentDashboard = () => {
                   Additional Charges
                 </h4>
                 <p className="text-sm text-blue-700">
-                  Platform commission: {restaurantData.commissionRate}% per
-                  booking (automatically deducted from customer payments)
+                  Platform commission: {restaurantData?.commissionRate || 10}%
+                  per booking (automatically deducted from customer payments)
                 </p>
               </div>
             </div>
@@ -463,14 +547,18 @@ const RestaurantPaymentDashboard = () => {
                 <h3 className="text-lg font-semibold">Payment History</h3>
                 <button
                   onClick={fetchRestaurantData}
-                  className="flex items-center text-sm text-blue-600 hover:text-blue-700"
+                  disabled={!hasRestaurant}
+                  className="flex items-center text-sm text-blue-600 hover:text-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  title={
+                    !hasRestaurant ? "Please create a restaurant first" : ""
+                  }
                 >
                   <RefreshCw className="h-4 w-4 mr-1" />
                   Refresh
                 </button>
               </div>
 
-              {restaurantData.paymentHistory &&
+              {restaurantData?.paymentHistory &&
               restaurantData.paymentHistory.length > 0 ? (
                 <div className="overflow-x-auto">
                   <table className="min-w-full divide-y divide-gray-200">
@@ -525,7 +613,9 @@ const RestaurantPaymentDashboard = () => {
                   <FileText className="h-12 w-12 mx-auto mb-3 text-gray-300" />
                   <p className="font-medium">No payment history yet</p>
                   <p className="text-sm mt-1">
-                    Payments will appear here once your subscription is active
+                    {hasRestaurant
+                      ? "Payments will appear here once your subscription is active"
+                      : "Create a restaurant to view payment history"}
                   </p>
                 </div>
               )}
