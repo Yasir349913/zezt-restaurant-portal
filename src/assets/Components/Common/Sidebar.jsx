@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { logoutUserApi } from "../../../api/auth";
-import { useSocket } from "../../../context/SocketContext";
+import { useSocket } from "../../../context/SocketContext"; // ✅ Import useSocket
 
 const navItems = [
   { path: "/dashboard", label: "Dashboard", icon: LayoutDashboard },

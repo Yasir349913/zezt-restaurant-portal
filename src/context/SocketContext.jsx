@@ -20,6 +20,7 @@ export const SocketProvider = ({ children }) => {
   const [socket, setSocket] = useState(null);
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [unreadMessageCount, setUnreadMessageCount] = useState(0); // ✅ NEW: Track unread messages separately
   const [isConnected, setIsConnected] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -45,14 +46,22 @@ export const SocketProvider = ({ children }) => {
       const unread = fetchedNotifications.filter((n) => !n.isRead).length;
       setUnreadCount(unread);
 
+      // ✅ Calculate unread message count
+      const unreadMessages = fetchedNotifications.filter(
+        (n) => !n.isRead && n.type === "new_customer_message"
+      ).length;
+      setUnreadMessageCount(unreadMessages);
+
       console.log("✅ Loaded:", fetchedNotifications.length, "notifications");
       console.log("📊 Unread:", unread);
+      console.log("💬 Unread Messages:", unreadMessages);
 
       setIsLoading(false);
     } catch (error) {
       console.error("❌ Error loading notifications:", error);
       setNotifications([]);
       setUnreadCount(0);
+      setUnreadMessageCount(0);
       setIsLoading(false);
     }
   };
@@ -67,7 +76,10 @@ export const SocketProvider = ({ children }) => {
     }
 
     const userId = user._id || user.id;
-    console.log("👤 User ID:", userId);
+    console.log("=".repeat(60));
+    console.log("🚀 INITIALIZING SOCKET CONNECTION");
+    console.log(`   User ID: ${userId}`);
+    console.log("=".repeat(60));
 
     // ✅ Load notifications on mount
     loadInitialNotifications(userId);
@@ -83,9 +95,17 @@ export const SocketProvider = ({ children }) => {
     });
 
     newSocket.on("connect", () => {
-      console.log("✅ Socket connected:", newSocket.id);
+      console.log("=".repeat(60));
+      console.log("✅ SOCKET CONNECTED");
+      console.log(`   Socket ID: ${newSocket.id}`);
+      console.log("=".repeat(60));
+
       setIsConnected(true);
       newSocket.emit("join_notification_room", { userId });
+    });
+
+    newSocket.on("notification_room_joined", (data) => {
+      console.log("✅ Notification room join confirmed:", data);
     });
 
     newSocket.on("disconnect", () => {
@@ -98,12 +118,10 @@ export const SocketProvider = ({ children }) => {
       setIsConnected(false);
     });
 
-    // ✅ FIXED: Listen for BOTH event types
-    // 1. Listen for restaurant_notification (from admin actions)
+    // Listen for restaurant_notification
     newSocket.on("restaurant_notification", (notificationData) => {
       console.log("🔔 Restaurant notification received:", notificationData);
 
-      // The backend sends the notification data directly, not nested
       const notification = {
         _id: notificationData._id,
         type: notificationData.type,
@@ -128,47 +146,25 @@ export const SocketProvider = ({ children }) => {
       }
     });
 
-    // 2. Listen for new_notification (from webhooks and other sources)
+    // Listen for new_notification
     newSocket.on("new_notification", (data) => {
       console.log("🔔 New notification received:", data);
 
-      // This format has notification nested in data
       const notification = data.notification || data;
 
       setNotifications((prev) => [notification, ...prev]);
       setUnreadCount((prev) => prev + 1);
 
+      // ✅ If it's a message notification, increment message count
+      if (notification.type === "new_customer_message") {
+        setUnreadMessageCount((prev) => prev + 1);
+        console.log("💬 Unread message count increased");
+      }
+
       // Browser notification
       if (Notification.permission === "granted") {
         new Notification(notification.title, {
           body: notification.message,
-          icon: "/logo.png",
-        });
-      }
-    });
-
-    // ✅ NEW: Listen for new_customer_message to show notification badge
-    newSocket.on("new_customer_message", (data) => {
-      console.log("💬 New customer message notification:", data);
-
-      // Create a chat notification
-      const chatNotification = {
-        _id: `chat-${Date.now()}`,
-        type: "new_message",
-        title: "New Message",
-        message: `New message from customer`,
-        roomId: data.roomId,
-        createdAt: new Date(),
-        isRead: false,
-      };
-
-      setNotifications((prev) => [chatNotification, ...prev]);
-      setUnreadCount((prev) => prev + 1);
-
-      // Browser notification
-      if (Notification.permission === "granted") {
-        new Notification("New Customer Message", {
-          body: data.message?.text || "You have a new message",
           icon: "/logo.png",
         });
       }
@@ -196,6 +192,9 @@ export const SocketProvider = ({ children }) => {
 
       console.log("📝 Marking as read:", notificationId);
 
+      // Find the notification to check its type
+      const notif = notifications.find((n) => n._id === notificationId);
+
       // Call API
       await markNotificationAsRead(notificationId, userId);
 
@@ -208,6 +207,12 @@ export const SocketProvider = ({ children }) => {
 
       // Decrease count
       setUnreadCount((prev) => Math.max(0, prev - 1));
+
+      // ✅ If it's a message notification, decrease message count too
+      if (notif && notif.type === "new_customer_message") {
+        setUnreadMessageCount((prev) => Math.max(0, prev - 1));
+        console.log("💬 Unread message count decreased");
+      }
 
       // Emit socket event
       if (socket) {
@@ -223,16 +228,41 @@ export const SocketProvider = ({ children }) => {
     }
   };
 
+  // ✅ NEW: Function to mark all message notifications as read
+  const markAllMessagesAsRead = async () => {
+    try {
+      const user = JSON.parse(localStorage.getItem("user"));
+      const userId = user._id || user.id;
+
+      // Get all unread message notifications
+      const unreadMessageNotifications = notifications.filter(
+        (n) => !n.isRead && n.type === "new_customer_message"
+      );
+
+      // Mark each as read
+      for (const notif of unreadMessageNotifications) {
+        await markAsRead(notif._id);
+      }
+
+      console.log("✅ All message notifications marked as read");
+    } catch (error) {
+      console.error("❌ Error marking all messages as read:", error);
+    }
+  };
+
   const value = {
     socket,
     isConnected,
     notifications,
     unreadCount,
+    unreadMessageCount, // ✅ NEW: Expose message count
     markAsRead,
+    markAllMessagesAsRead, // ✅ NEW: Expose function to clear message badge
     isLoading,
     loadInitialNotifications,
     setNotifications,
     setUnreadCount,
+    setUnreadMessageCount, // ✅ NEW: Allow manual updates
   };
 
   return (
