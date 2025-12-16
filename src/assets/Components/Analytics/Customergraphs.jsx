@@ -11,6 +11,7 @@ import {
 } from "recharts";
 import { getMonthlyDealRating } from "../../../api/services/Analyticsservice";
 import { useRestaurant } from "../../../context/RestaurantContext";
+import Loader from "../Common/Loader";
 
 const months = [
   "Jan",
@@ -31,7 +32,7 @@ const Customergraphs = () => {
   const { restaurantId } = useRestaurant();
   const [data, setData] = useState([]);
   const [avgRatingThisYear, setAvgRatingThisYear] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   // Helper to build month-averages across deals
@@ -66,27 +67,28 @@ const Customergraphs = () => {
 
   useEffect(() => {
     const fetchData = async () => {
-      if (!restaurantId) {
-        setData(
-          months.map((m) => ({
-            month: m,
-            rating: 0,
-          }))
-        );
-        setAvgRatingThisYear(0);
-        return;
-      }
-
       setLoading(true);
       setError(null);
 
+      // Check localStorage fallback
+      const fallbackId =
+        typeof window !== "undefined"
+          ? localStorage.getItem("restaurantId")
+          : null;
+      const idToUse = restaurantId || fallbackId;
+
       try {
-        const resp = await getMonthlyDealRating(restaurantId);
-        // resp.deals is expected as per your API
+        if (!idToUse) {
+          // No restaurant - set default empty data
+          setData(months.map((m) => ({ month: m, rating: 0 })));
+          setAvgRatingThisYear(0);
+          return;
+        }
+
+        const resp = await getMonthlyDealRating(idToUse);
         const deals = resp?.deals ?? [];
 
         const monthlyData = buildMonthlyAverages(deals);
-
         setData(monthlyData);
 
         // compute yearly average (avg of non-zero months)
@@ -102,13 +104,8 @@ const Customergraphs = () => {
       } catch (err) {
         console.error("Failed to fetch monthly deal ratings:", err);
         setError("Failed to load data");
-        // fallback placeholder
-        setData(
-          months.map((m) => ({
-            month: m,
-            rating: 0,
-          }))
-        );
+        // fallback placeholder (graceful fallback)
+        setData(months.map((m) => ({ month: m, rating: 0 })));
         setAvgRatingThisYear(0);
       } finally {
         setLoading(false);
@@ -126,15 +123,11 @@ const Customergraphs = () => {
         </h3>
 
         <div className="text-sm text-gray-600">
-          {loading ? (
-            <span>Loading...</span>
-          ) : error ? (
-            <span className="text-red-500">{error}</span>
-          ) : (
+          {!loading && !error && (
             <div className="flex items-center gap-4">
               <div className="text-xs text-gray-500">Avg (year)</div>
               <div className="bg-red-500 text-white px-3 py-1 rounded text-sm font-medium">
-                {avgRatingThisYear ?? "-"}
+                {avgRatingThisYear ?? "0"}
               </div>
             </div>
           )}
@@ -142,61 +135,91 @@ const Customergraphs = () => {
       </div>
 
       <div className="h-64">
-        <ResponsiveContainer width="100%" height="100%">
-          <LineChart
-            data={data}
-            margin={{ top: 20, right: 30, left: 0, bottom: 10 }}
-          >
-            <XAxis
-              dataKey="month"
-              axisLine={false}
-              tickLine={false}
-              tick={{ fontSize: 12, fill: "#9CA3AF" }}
-            />
-            <YAxis
-              axisLine={false}
-              tickLine={false}
-              tick={{ fontSize: 12, fill: "#9CA3AF" }}
-              domain={[0, 5]}
-              ticks={[0, 1, 2, 3, 4, 5]}
-            />
+        {loading ? (
+          <div className="h-full flex items-center justify-center">
+            <Loader size="md" text="Loading satisfaction data..." />
+          </div>
+        ) : error ? (
+          <div className="h-full flex flex-col items-center justify-center">
+            <svg
+              className="w-16 h-16 text-gray-300 mb-3"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={1.5}
+                d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+              />
+            </svg>
+            <p className="text-sm text-gray-500 font-medium mb-1">
+              No satisfaction data available
+            </p>
+            <p className="text-xs text-gray-400">
+              Data will appear once you have rated deals
+            </p>
+          </div>
+        ) : (
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart
+              data={data}
+              margin={{ top: 20, right: 30, left: 0, bottom: 10 }}
+            >
+              <XAxis
+                dataKey="month"
+                axisLine={false}
+                tickLine={false}
+                tick={{ fontSize: 12, fill: "#9CA3AF" }}
+              />
+              <YAxis
+                axisLine={false}
+                tickLine={false}
+                tick={{ fontSize: 12, fill: "#9CA3AF" }}
+                domain={[0, 5]}
+                ticks={[0, 1, 2, 3, 4, 5]}
+              />
 
-            <ReferenceLine x="Jun" stroke="#E5E7EB" strokeDasharray="2 2" />
+              <ReferenceLine x="Jun" stroke="#E5E7EB" strokeDasharray="2 2" />
 
-            <Tooltip
-              formatter={(value) =>
-                typeof value === "number" ? value.toFixed(2) : value
-              }
-            />
+              <Tooltip
+                formatter={(value) =>
+                  typeof value === "number" ? value.toFixed(2) : value
+                }
+              />
 
-            <Line
-              type="monotone"
-              dataKey="rating"
-              stroke="#EF4444"
-              strokeWidth={2}
-              dot={{ r: 3 }}
-              activeDot={{ r: 5 }}
-            />
-          </LineChart>
-        </ResponsiveContainer>
+              <Line
+                type="monotone"
+                dataKey="rating"
+                stroke="#EF4444"
+                strokeWidth={2}
+                dot={{ r: 3 }}
+                activeDot={{ r: 5 }}
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        )}
       </div>
 
-      <div className="mt-4 flex justify-center">
-        <div className="text-center">
-          <p className="text-sm text-gray-600 mb-1">Peak month (approx)</p>
-          <p className="text-lg font-semibold text-gray-800">
-            {data && data.length
-              ? (() => {
-                  const max = data.reduce(
-                    (mx, d) => (d.rating > mx.rating ? d : mx),
-                    { month: "-", rating: -1 }
-                  );
-                  return `${max.month} — ${max.rating || 0}`;
-                })()
-              : "-"}
-          </p>
+      {!loading && !error && (
+        <div className="mt-4 flex justify-center">
+          <div className="text-center">
+            <p className="text-sm text-gray-600 mb-1">Peak month (approx)</p>
+            <p className="text-lg font-semibold text-gray-800">
+              {data && data.length
+                ? (() => {
+                    const max = data.reduce(
+                      (mx, d) => (d.rating > mx.rating ? d : mx),
+                      { month: "-", rating: -1 }
+                    );
+                    return `${max.month} — ${max.rating || 0}`;
+                  })()
+                : "-"}
+            </p>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };
