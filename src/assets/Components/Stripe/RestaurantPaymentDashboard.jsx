@@ -13,6 +13,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 import Loader from "../Common/Loader";
+
 const RestaurantPaymentDashboard = () => {
   const { restaurantId } = useRestaurant();
   const [restaurantData, setRestaurantData] = useState(null);
