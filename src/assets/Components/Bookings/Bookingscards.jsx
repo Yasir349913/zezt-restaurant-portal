@@ -1,4 +1,6 @@
 import React from "react";
+import Loader from "../Dashboard/Loader";
+
 const BookingCard = ({ name, number, percentage }) => (
   <div className="bg-white rounded-lg border border-gray-200 p-4 flex flex-col shadow-sm hover:shadow-md transition-shadow">
     <div className="flex justify-between items-start mb-2">
@@ -15,55 +17,60 @@ const BookingCard = ({ name, number, percentage }) => (
   </div>
 );
 
-const Bookingcards = ({ stats }) => {
-  // Loading state
-  if (!stats) {
+const Bookingcards = ({ stats, loading = false }) => {
+  // Loading state - show loader
+  if (loading) {
     return (
-      <div className="space-y-6">
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5 md:gap-6">
-          {[1, 2, 3, 4, 5, 6].map((i) => (
-            <div
-              key={i}
-              className="bg-gray-200 rounded-lg h-32 animate-pulse"
-            />
-          ))}
-        </div>
+      <div className="flex items-center justify-center py-12">
+        <Loader size="md" text="Loading booking statistics..." />
       </div>
     );
   }
 
-  // Cards data from API
-  const cardsData = [
-    {
-      name: "Total Bookings",
-      number: stats.totalBookings || 0,
-      percentage: 0,
-    },
-    {
-      name: "Confirmed",
-      number: stats.confirmedCount || 0,
-      percentage: 0,
-    },
-    {
-      name: "Pending",
-      number: stats.pendingCount || 0,
-      percentage: 0,
-    },
-    {
-      name: "Cancelled",
-      number: stats.cancelledCount || 0,
-      percentage: 0,
-    },
-    {
-      name: "No-Show",
-      number: stats.noshowCount || 0,
-      percentage: 0,
-    },
-    {
-      name: "Total Guests",
-      number: stats.totalPartySize || 0,
-    },
+  // Default cards data with 0 values (used when no stats or no restaurant)
+  const defaultCardsData = [
+    { name: "Total Bookings", number: 0, percentage: 0 },
+    { name: "Confirmed", number: 0, percentage: 0 },
+    { name: "Pending", number: 0, percentage: 0 },
+    { name: "Cancelled", number: 0, percentage: 0 },
+    { name: "No-Show", number: 0, percentage: 0 },
+    { name: "Total Guests", number: 0 },
   ];
+
+  // Cards data from API or default to 0s
+  const cardsData = stats
+    ? [
+        {
+          name: "Total Bookings",
+          number: stats.totalBookings || 0,
+          percentage: 0,
+        },
+        {
+          name: "Confirmed",
+          number: stats.confirmedCount || 0,
+          percentage: 0,
+        },
+        {
+          name: "Pending",
+          number: stats.pendingCount || 0,
+          percentage: 0,
+        },
+        {
+          name: "Cancelled",
+          number: stats.cancelledCount || 0,
+          percentage: 0,
+        },
+        {
+          name: "No-Show",
+          number: stats.noshowCount || 0,
+          percentage: 0,
+        },
+        {
+          name: "Total Guests",
+          number: stats.totalPartySize || 0,
+        },
+      ]
+    : defaultCardsData;
 
   return (
     <div className="space-y-6">
