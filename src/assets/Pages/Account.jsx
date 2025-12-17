@@ -18,11 +18,12 @@ const initial = {
   phoneNumber: "",
 };
 
-export default function Account() {
+export default function Account({ setShowAccount }) {
   const [form, setForm] = useState(initial);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState({ type: null, text: null });
   const [fieldErrors, setFieldErrors] = useState({});
+  const [showPassword, setShowPassword] = useState(false);
 
   const onChange = useCallback((e) => {
     const { name, value } = e.target;
@@ -134,6 +135,13 @@ export default function Account() {
           text: `Account created successfully for ${user?.firstName || "you"}!`,
         });
         setForm(initial);
+
+        // Redirect to login page after 1.5 seconds
+        setTimeout(() => {
+          if (setShowAccount) {
+            setShowAccount(false);
+          }
+        }, 1500);
       } catch (e) {
         const err = normalizeError(e);
         if (err.fields) setFieldErrors(err.fields);
@@ -142,7 +150,7 @@ export default function Account() {
         setLoading(false);
       }
     },
-    [form, validateForm, normalizeError]
+    [form, validateForm, normalizeError, setShowAccount]
   );
 
   const Message = useMemo(
@@ -179,6 +187,9 @@ export default function Account() {
           onKeyDown,
           errorMessage,
           required = true,
+          showPasswordToggle = false,
+          showPassword = false,
+          onTogglePassword,
           ...props
         }) => (
           <div className="w-full">
@@ -188,24 +199,69 @@ export default function Account() {
             >
               {label} {required && <span className="text-red-500">*</span>}
             </label>
-            <input
-              id={name}
-              name={name}
-              type={type}
-              value={value ?? ""}
-              onChange={onChange}
-              onKeyDown={onKeyDown}
-              placeholder={placeholder}
-              className={`w-full px-3 py-3 text-sm rounded-lg border 
-                ${
-                  errorMessage
-                    ? "border-red-300 focus:ring-red-200 focus:border-red-500"
-                    : "border-gray-300 focus:ring-blue-200 focus:border-blue-500"
-                } 
-                transition duration-200`}
-              required={required}
-              {...props}
-            />
+            <div className="relative">
+              <input
+                id={name}
+                name={name}
+                type={showPasswordToggle && showPassword ? "text" : type}
+                value={value ?? ""}
+                onChange={onChange}
+                onKeyDown={onKeyDown}
+                placeholder={placeholder}
+                className={`w-full px-3 py-3 text-sm rounded-lg border 
+                  ${
+                    errorMessage
+                      ? "border-red-300 focus:ring-red-200 focus:border-red-500"
+                      : "border-gray-300 focus:ring-blue-200 focus:border-blue-500"
+                  } 
+                  transition duration-200 ${showPasswordToggle ? "pr-10" : ""}`}
+                required={required}
+                {...props}
+              />
+              {showPasswordToggle && (
+                <button
+                  type="button"
+                  onClick={onTogglePassword}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                >
+                  {showPassword ? (
+                    <svg
+                      className="w-4 h-4"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21"
+                      />
+                    </svg>
+                  ) : (
+                    <svg
+                      className="w-4 h-4"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                      />
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                      />
+                    </svg>
+                  )}
+                </button>
+              )}
+            </div>
             {errorMessage && (
               <p className="mt-1 text-xs text-red-600">{errorMessage}</p>
             )}
@@ -272,6 +328,9 @@ export default function Account() {
             onChange={onChange}
             onKeyDown={onKeyDown}
             errorMessage={fieldErrors.password}
+            showPasswordToggle={true}
+            showPassword={showPassword}
+            onTogglePassword={() => setShowPassword(!showPassword)}
           />
 
           <InputField
@@ -296,12 +355,13 @@ export default function Account() {
 
         <p className="text-center text-sm text-gray-600 mt-6">
           Already have an account?{" "}
-          <a
-            href="/login"
+          <button
+            type="button"
+            onClick={() => setShowAccount && setShowAccount(false)}
             className="text-red-500 font-medium hover:text-red-600"
           >
             Sign in here
-          </a>
+          </button>
         </p>
       </div>
     </div>
