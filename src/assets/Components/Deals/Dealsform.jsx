@@ -1017,7 +1017,7 @@ const CreateDealModal = ({ isOpen, onClose, onDealCreated }) => {
             {formData.deal_price > 0 && (
               <div className="bg-green-50 border border-green-300 rounded-md p-3 mt-2">
                 <p className="text-sm font-medium text-green-700">
-                  Total Deal Price: ${formData.deal_price.toFixed(2)}
+                  Total Deal Price: £{formData.deal_price.toFixed(2)}
                 </p>
                 {/* <p className="text-xs text-green-600 mt-1">
                   (Auto-calculated from menu items)
